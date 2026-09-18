@@ -28,6 +28,9 @@ export const siteConfig = {
     label: "Acceso a Clientes",
     href: "#acceso-clientes",
   },
+  googleClientId:
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+    "384115038053-ktejh22ce4f9hkun4nba8qajnf3g0euh.apps.googleusercontent.com",
   ctaNav: {
     label: "Contactanos",
     href: "#contacto",

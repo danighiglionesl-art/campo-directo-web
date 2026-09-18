@@ -44,6 +44,7 @@ import {
   DeliveryLocation,
 } from "@/types/quotation";
 import { useClientAuth } from "@/context/ClientAuthContext";
+import { triggerGoogleAuth } from "@/utils/googleAuth";
 import {
   allInsumos,
   allSemillas,
@@ -104,7 +105,7 @@ const PAYMENT_METHODS = [
 ];
 
 export const QuotationSection: React.FC = () => {
-  const { user, addSentQuotation } = useClientAuth();
+  const { user, addSentQuotation, loginWithGoogle } = useClientAuth();
 
   // 1. Wizard: Operación (COMPRAR / VENDER) & Categoría (INSUMOS / SEMILLAS / GRANOS)
   const [operation, setOperation] = useState<OperationType>("COMPRAR");
@@ -484,16 +485,69 @@ export const QuotationSection: React.FC = () => {
     });
   };
 
-  const handleGoogleAuthMock = () => {
-    setFormNuevo((prev) => ({
-      ...prev,
-      apellidos: prev.apellidos || "PRODUCTOR",
-      nombres: prev.nombres || "AGROPECUARIO",
-      email: prev.email || "USUARIO.GOOGLE@GMAIL.COM",
-      usuario: prev.usuario || "USUARIO.GOOGLE@GMAIL.COM",
-      password: "••••••••••••",
-    }));
-    showNotification("DATOS VINCULADOS CORRECTAMENTE CON CUENTA DE GOOGLE");
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const handleGoogleAuth = async (flow: "LOGIN" | "REGISTER" = "REGISTER") => {
+    try {
+      setIsGoogleLoading(true);
+      const googleUser = await triggerGoogleAuth();
+
+      // Iniciar sesión global en el contexto de cliente
+      loginWithGoogle(googleUser);
+
+      const nombres = (
+        googleUser.given_name ||
+        googleUser.name?.split(" ")[0] ||
+        ""
+      ).toUpperCase();
+      const apellidos = (
+        googleUser.family_name ||
+        googleUser.name?.split(" ").slice(1).join(" ") ||
+        ""
+      ).toUpperCase();
+      const email = googleUser.email.toUpperCase();
+
+      if (flow === "REGISTER") {
+        setFormNuevo((prev) => ({
+          ...prev,
+          nombres: nombres || prev.nombres,
+          apellidos: apellidos || prev.apellidos,
+          razonSocial:
+            prev.razonSocial ||
+            `${apellidos} ${nombres}`.trim() ||
+            googleUser.name.toUpperCase(),
+          email: email,
+          usuario: email,
+          password: "••••••••••••",
+        }));
+        showNotification(
+          `¡VINCULADO CON GOOGLE! BIENVENIDO ${googleUser.name.toUpperCase()}`
+        );
+      } else {
+        // Flujo LOGIN para cliente registrado
+        setFormRegistrado({
+          identifier: email,
+          password: "••••••••••••",
+        });
+        showNotification(
+          `¡SESIÓN INICIADA CON GOOGLE! BIENVENIDO ${googleUser.name.toUpperCase()}`
+        );
+      }
+    } catch (err: any) {
+      console.warn("Google Auth cancelado o con error:", err);
+      const msg = err?.message || "";
+      if (
+        !msg.toLowerCase().includes("cerrada") &&
+        !msg.toLowerCase().includes("popup_closed") &&
+        !msg.toLowerCase().includes("cancelada")
+      ) {
+        showNotification(
+          `ERROR AL CONECTAR CON GOOGLE: ${msg.toUpperCase() || "INTENTE NUEVAMENTE"}`
+        );
+      }
+    } finally {
+      setIsGoogleLoading(false);
+    }
   };
 
   const addPuntoEntrega = () => {
@@ -2034,28 +2088,37 @@ export const QuotationSection: React.FC = () => {
                   <div className="pt-2">
                     <button
                       type="button"
-                      onClick={handleGoogleAuthMock}
-                      className="w-full py-2.5 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-xs uppercase"
+                      onClick={() => handleGoogleAuth("LOGIN")}
+                      disabled={isGoogleLoading}
+                      className="w-full py-2.5 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-xs uppercase disabled:opacity-50"
                     >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24">
-                        <path
-                          fill="#4285F4"
-                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                        />
-                        <path
-                          fill="#EA4335"
-                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                        />
-                      </svg>
-                      <span>INICIAR SESIÓN CON GOOGLE</span>
+                      {isGoogleLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-campo-green" />
+                      ) : (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24">
+                          <path
+                            fill="#4285F4"
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                          />
+                        </svg>
+                      )}
+                      <span>
+                        {isGoogleLoading
+                          ? "CONECTANDO CON GOOGLE..."
+                          : "INICIAR SESIÓN CON GOOGLE"}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -2067,6 +2130,52 @@ export const QuotationSection: React.FC = () => {
                   <div className="bg-campo-green-100/90 p-3 rounded-xl border border-campo-green-300/80 text-campo-green-950 text-xs font-black flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-campo-green shrink-0" />
                     <span>FORMULARIO DE REGISTRO: TODOS LOS CAMPOS DEBEN COMPLETARSE EN MAYÚSCULAS</span>
+                  </div>
+
+                  {/* Botón destacado 1 Clic con Google */}
+                  <div className="bg-white p-3 sm:p-4 rounded-xl border border-emerald-300/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="text-center sm:text-left">
+                      <p className="text-xs font-black text-slate-900 uppercase">
+                        ¿Querés ahorrar tiempo?
+                      </p>
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        Vinculá tu cuenta de Gmail para autocompletar tus datos al instante
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleGoogleAuth("REGISTER")}
+                      disabled={isGoogleLoading}
+                      className="w-full sm:w-auto py-2 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-2xs hover:border-campo-green shrink-0 uppercase disabled:opacity-50"
+                    >
+                      {isGoogleLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-campo-green" />
+                      ) : (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24">
+                          <path
+                            fill="#4285F4"
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                          />
+                        </svg>
+                      )}
+                      <span>
+                        {isGoogleLoading
+                          ? "CONECTANDO..."
+                          : "COMPLETAR CON MI CUENTA GOOGLE"}
+                      </span>
+                    </button>
                   </div>
 
                   {/* 1. Apellido/s y 2. Nombres */}
@@ -2549,10 +2658,37 @@ export const QuotationSection: React.FC = () => {
                       </span>
                       <button
                         type="button"
-                        onClick={handleGoogleAuthMock}
-                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-campo-green hover:underline uppercase"
+                        onClick={() => handleGoogleAuth("REGISTER")}
+                        disabled={isGoogleLoading}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-campo-green hover:underline uppercase disabled:opacity-50"
                       >
-                        <span>OPCIÓN REGISTRARSE CON GOOGLE</span>
+                        {isGoogleLoading ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-campo-green" />
+                        ) : (
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                            <path
+                              fill="#4285F4"
+                              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                            />
+                            <path
+                              fill="#34A853"
+                              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                            />
+                            <path
+                              fill="#FBBC05"
+                              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                            />
+                            <path
+                              fill="#EA4335"
+                              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                            />
+                          </svg>
+                        )}
+                        <span>
+                          {isGoogleLoading
+                            ? "VINCULANDO..."
+                            : "VINCULAR CON CUENTA DE GOOGLE"}
+                        </span>
                       </button>
                     </div>
 

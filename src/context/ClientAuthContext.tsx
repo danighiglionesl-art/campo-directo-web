@@ -28,6 +28,13 @@ interface ClientAuthContextType {
   setActiveTab: (tab: PortalTab) => void;
   login: (usuarioOrCuit: string, password: string) => { success: boolean; error?: string };
   loginDemo: () => void;
+  loginWithGoogle: (googleUser: {
+    email: string;
+    name?: string;
+    given_name?: string;
+    family_name?: string;
+    picture?: string;
+  }) => { success: boolean; user: ClientProfile };
   logout: () => void;
   updateProfile: (updated: Partial<ClientProfile>) => void;
   changePassword: (currentPass: string, newPass: string) => { success: boolean; error?: string };
@@ -322,6 +329,70 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  const loginWithGoogle = (googleUser: {
+    email: string;
+    name?: string;
+    given_name?: string;
+    family_name?: string;
+    picture?: string;
+  }): { success: boolean; user: ClientProfile } => {
+    const email = googleUser.email.trim();
+    const usuario = email.split("@")[0].toUpperCase();
+    const nombres = (
+      googleUser.given_name ||
+      googleUser.name?.split(" ")[0] ||
+      "PRODUCTOR"
+    ).toUpperCase();
+    const apellidos = (
+      googleUser.family_name ||
+      googleUser.name?.split(" ").slice(1).join(" ") ||
+      "AGROPECUARIO"
+    ).toUpperCase();
+    const razonSocial = `${apellidos} ${nombres}`.trim();
+
+    let baseProfile: ClientProfile = {
+      ...defaultClientProfile,
+      id: `cli-${Date.now()}`,
+      usuario,
+      razonSocial,
+      apellidos,
+      nombres,
+      email: email.toLowerCase(),
+    };
+
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("cd_client_user");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (
+            parsed &&
+            (parsed.email?.toLowerCase() === email.toLowerCase() ||
+              parsed.usuario?.toLowerCase() === usuario.toLowerCase())
+          ) {
+            baseProfile = {
+              ...parsed,
+              email: email.toLowerCase(),
+              nombres,
+              apellidos,
+            };
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    setUser(baseProfile);
+    try {
+      localStorage.setItem("cd_client_user", JSON.stringify(baseProfile));
+    } catch (e) {
+      console.error(e);
+    }
+
+    return { success: true, user: baseProfile };
+  };
+
   const logout = () => {
     setUser(null);
     try {
@@ -463,6 +534,7 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setActiveTab,
         login,
         loginDemo,
+        loginWithGoogle,
         logout,
         updateProfile,
         changePassword,
