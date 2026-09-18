@@ -27,6 +27,7 @@ interface ClientAuthContextType {
   closePortal: () => void;
   setActiveTab: (tab: PortalTab) => void;
   login: (usuarioOrCuit: string, password: string) => { success: boolean; error?: string };
+  registerClient: (profileData: Partial<ClientProfile>) => { success: boolean; user: ClientProfile };
   loginDemo: () => void;
   loginWithGoogle: (googleUser: {
     email: string;
@@ -320,6 +321,21 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return { success: true };
   };
 
+  const registerClient = (profileData: Partial<ClientProfile>): { success: boolean; user: ClientProfile } => {
+    const newProfile: ClientProfile = {
+      ...defaultClientProfile,
+      ...profileData,
+      id: profileData.id || `cli-${Date.now()}`,
+    };
+    setUser(newProfile);
+    try {
+      localStorage.setItem("cd_client_user", JSON.stringify(newProfile));
+    } catch (e) {
+      console.error(e);
+    }
+    return { success: true, user: newProfile };
+  };
+
   const loginDemo = () => {
     setUser(defaultClientProfile);
     try {
@@ -533,6 +549,7 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         closePortal,
         setActiveTab,
         login,
+        registerClient,
         loginDemo,
         loginWithGoogle,
         logout,

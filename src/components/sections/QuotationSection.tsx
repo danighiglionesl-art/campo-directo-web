@@ -33,6 +33,7 @@ import {
   CreditCard,
   FileCheck,
   Banknote,
+  ArrowRight,
 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import {
@@ -106,7 +107,15 @@ const PAYMENT_METHODS = [
 ];
 
 export const QuotationSection: React.FC = () => {
-  const { user, addSentQuotation, loginWithGoogle } = useClientAuth();
+  const {
+    user,
+    login,
+    registerClient,
+    logout,
+    establishments,
+    addSentQuotation,
+    loginWithGoogle,
+  } = useClientAuth();
 
   // 1. Wizard: Operación (COMPRAR / VENDER) & Categoría (INSUMOS / SEMILLAS / GRANOS)
   const [operation, setOperation] = useState<OperationType>("COMPRAR");
@@ -176,15 +185,26 @@ export const QuotationSection: React.FC = () => {
   const [formaPago, setFormaPago] = useState<string>("Transferencia Bancaria");
   const [formaPagoOtra, setFormaPagoOtra] = useState<string>("");
 
-  // Sincronizar identificador si el usuario ya está autenticado en el portal
+  // Sincronizar identificador y pestaña si el usuario ya está autenticado en el portal
   useEffect(() => {
     if (user) {
+      setClientTab("REGISTRADO");
       setFormRegistrado((prev) => ({
         ...prev,
         identifier: prev.identifier || user.email || user.cuit,
       }));
     }
   }, [user, isModalOpen]);
+
+  // Selección de establecimiento registrado o carga de tranquera personalizada
+  const [selectedEstablishmentId, setSelectedEstablishmentId] = useState<string | null>(null);
+  const [useCustomPuntoEntrega, setUseCustomPuntoEntrega] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (establishments && establishments.length > 0 && !selectedEstablishmentId) {
+      setSelectedEstablishmentId(establishments[0].id);
+    }
+  }, [establishments, selectedEstablishmentId]);
 
   // 6.b Geoposición Satelital de Entrega (1 o más opciones)
   const [puntosEntrega, setPuntosEntrega] = useState<DeliveryLocation[]>([
@@ -639,6 +659,99 @@ export const QuotationSection: React.FC = () => {
     );
   };
 
+  // --- NIVEL 3 - OPCIÓN A: REGISTRO DE CLIENTE NUEVO Y PASE A NIVEL CON CLAVE ---
+  const handleRegisterAndContinue = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    if (!formNuevo.apellidos.trim()) {
+      setFormError("EL CAMPO APELLIDO/S ES OBLIGATORIO");
+      modalScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    if (!formNuevo.nombres.trim()) {
+      setFormError("EL CAMPO NOMBRES/S ES OBLIGATORIO");
+      modalScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    if (!formNuevo.fechaNacimiento.trim() || formNuevo.fechaNacimiento.length < 8) {
+      setFormError("LA FECHA DE NACIMIENTO ES OBLIGATORIA (FORMATO DD/MM/AAAA)");
+      modalScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    if (!formNuevo.dni.trim()) {
+      setFormError("EL CAMPO DNI ES OBLIGATORIO");
+      modalScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    if (!formNuevo.whatsappNumber.trim()) {
+      setFormError("EL NÚMERO DE WHATSAPP ES OBLIGATORIO");
+      modalScrollRef.current?.scrollTo({ top: 100, behavior: "smooth" });
+      return;
+    }
+    if (!formNuevo.email.trim()) {
+      setFormError("EL CORREO ELECTRÓNICO ES OBLIGATORIO");
+      modalScrollRef.current?.scrollTo({ top: 100, behavior: "smooth" });
+      return;
+    }
+    if (!formNuevo.cuit.trim() || formNuevo.cuit.replace(/\D/g, "").length < 11) {
+      setFormError("EL CUIT ES OBLIGATORIO Y DEBE TENER 11 DÍGITOS");
+      modalScrollRef.current?.scrollTo({ top: 200, behavior: "smooth" });
+      return;
+    }
+    if (!formNuevo.razonSocial.trim()) {
+      setFormError("EL NOMBRE O RAZÓN SOCIAL ES OBLIGATORIO");
+      modalScrollRef.current?.scrollTo({ top: 200, behavior: "smooth" });
+      return;
+    }
+    if (!formNuevo.password.trim()) {
+      setFormError("POR FAVOR DEFINÍ UNA CONTRASEÑA PARA TU CUENTA");
+      modalScrollRef.current?.scrollTo({ top: 300, behavior: "smooth" });
+      return;
+    }
+
+    const res = registerClient({
+      usuario: formNuevo.usuario || formNuevo.email.split("@")[0].toUpperCase(),
+      razonSocial: formNuevo.razonSocial.toUpperCase(),
+      apellidos: formNuevo.apellidos.toUpperCase(),
+      nombres: formNuevo.nombres.toUpperCase(),
+      cuit: formNuevo.cuit,
+      email: formNuevo.email.toLowerCase(),
+      whatsapp: `${formNuevo.whatsappCountryCode} ${formNuevo.whatsappNumber}`,
+      provincia: formNuevo.provincia,
+      localidad: formNuevo.localidad,
+    });
+
+    if (res.success) {
+      showNotification("¡CUENTA REGISTRADA CON ÉXITO! AHORA COMPLETÁ EL DESTINO Y FORMA DE PAGO");
+      modalScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // --- NIVEL 3 - OPCIÓN B: LOGIN DE CLIENTE REGISTRADO Y PASE A NIVEL CON CLAVE ---
+  const handleLoginAndContinue = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    if (!formRegistrado.identifier.trim()) {
+      setFormError("INGRESÁ TU CUIT O CORREO ELECTRÓNICO");
+      return;
+    }
+    if (!formRegistrado.password.trim()) {
+      setFormError("INGRESÁ TU CONTRASEÑA");
+      return;
+    }
+
+    const res = login(formRegistrado.identifier, formRegistrado.password);
+    if (!res.success) {
+      setFormError(res.error || "ERROR AL INICIAR SESIÓN. VERIFICÁ TUS DATOS.");
+    } else {
+      showNotification("¡SESIÓN INICIADA! AHORA COMPLETÁ EL DESTINO Y FORMA DE PAGO");
+      modalScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // --- NIVEL 4 CON CLAVE: ENVÍO FINAL DE LA COTIZACIÓN CON FORMA DE PAGO Y DESTINO ---
   const handleSubmitQuotation = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -649,58 +762,9 @@ export const QuotationSection: React.FC = () => {
       return;
     }
 
-    if (clientTab === "NUEVO") {
-      if (!formNuevo.apellidos.trim()) {
-        setFormError("EL CAMPO APELLIDO/S ES OBLIGATORIO");
-        modalScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
-      if (!formNuevo.nombres.trim()) {
-        setFormError("EL CAMPO NOMBRES/S ES OBLIGATORIO");
-        modalScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
-      if (!formNuevo.fechaNacimiento.trim() || formNuevo.fechaNacimiento.length < 8) {
-        setFormError("LA FECHA DE NACIMIENTO ES OBLIGATORIA (FORMATO DD/MM/AAAA)");
-        modalScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
-      if (!formNuevo.dni.trim()) {
-        setFormError("EL CAMPO DNI ES OBLIGATORIO");
-        modalScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
-      if (!formNuevo.whatsappNumber.trim()) {
-        setFormError("EL NÚMERO DE WHATSAPP ES OBLIGATORIO");
-        modalScrollRef.current?.scrollTo({ top: 100, behavior: "smooth" });
-        return;
-      }
-      if (!formNuevo.email.trim()) {
-        setFormError("EL CORREO ELECTRÓNICO ES OBLIGATORIO");
-        modalScrollRef.current?.scrollTo({ top: 100, behavior: "smooth" });
-        return;
-      }
-      if (!formNuevo.cuit.trim() || formNuevo.cuit.replace(/\D/g, "").length < 11) {
-        setFormError("EL CUIT ES OBLIGATORIO Y DEBE TENER 11 DÍGITOS");
-        modalScrollRef.current?.scrollTo({ top: 200, behavior: "smooth" });
-        return;
-      }
-      if (!formNuevo.razonSocial.trim()) {
-        setFormError("EL NOMBRE O RAZÓN SOCIAL ES OBLIGATORIO");
-        modalScrollRef.current?.scrollTo({ top: 200, behavior: "smooth" });
-        return;
-      }
-    } else {
-      if (!user && !formRegistrado.identifier.trim()) {
-        setFormError("INGRESÁ TU CUIT O CORREO ELECTRÓNICO");
-        modalScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
-      if (!user && !formRegistrado.password.trim()) {
-        setFormError("INGRESÁ TU CONTRASEÑA");
-        modalScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
+    if (!user) {
+      setFormError("DEBÉS INICIAR SESIÓN O REGISTRARTE PARA CONTINUAR");
+      return;
     }
 
     if (!formaPago) {
@@ -720,6 +784,18 @@ export const QuotationSection: React.FC = () => {
         ? `OTRA: ${formaPagoOtra.trim().toUpperCase()}`
         : formaPago.toUpperCase();
 
+    // Determinar nombre del establecimiento o punto de entrega de descarga
+    let targetEstablishmentName = "";
+    if (!useCustomPuntoEntrega && selectedEstablishmentId && establishments && establishments.length > 0) {
+      const foundEst = establishments.find((est) => est.id === selectedEstablishmentId);
+      if (foundEst) {
+        targetEstablishmentName = `${foundEst.nombre} (${foundEst.localidad}, ${foundEst.provincia})`;
+      }
+    }
+    if (!targetEstablishmentName && puntosEntrega.length > 0) {
+      targetEstablishmentName = puntosEntrega[0].nombreLote || "TRANQUERA DE CAMPO DIRECTO";
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -727,22 +803,22 @@ export const QuotationSection: React.FC = () => {
         operation,
         items: cartItems,
         formaPago: paymentMethodSelected,
-        client:
-          clientTab === "NUEVO"
-            ? {
-                ...formNuevo,
-                formaPago: paymentMethodSelected,
-                tipoCliente: "NUEVO" as const,
-                puntosEntrega,
-              }
-            : {
-                tipoCliente: "REGISTRADO" as const,
-                formaPago: paymentMethodSelected,
-                email: (user?.email || formRegistrado.identifier).toUpperCase(),
-                cuit: (user?.cuit || formRegistrado.identifier).toUpperCase(),
-              },
-        generalObservations:
-          clientTab === "NUEVO" ? formNuevo.observaciones : undefined,
+        client: {
+          tipoCliente: "REGISTRADO" as const,
+          formaPago: paymentMethodSelected,
+          email: user.email.toUpperCase(),
+          cuit: user.cuit.toUpperCase(),
+          razonSocial: user.razonSocial?.toUpperCase() || `${user.apellidos} ${user.nombres}`.trim(),
+          apellidos: user.apellidos,
+          nombres: user.nombres,
+          provincia: user.provincia,
+          localidad: user.localidad,
+          telefono: user.telefono || user.whatsapp,
+          whatsappNumber: user.whatsapp,
+          establecimientoDestino: targetEstablishmentName,
+          puntosEntrega: useCustomPuntoEntrega || !establishments || establishments.length === 0 ? puntosEntrega : undefined,
+        },
+        generalObservations: formNuevo.observaciones || undefined,
       };
 
       const res = await fetch("/api/cotizacion", {
@@ -777,9 +853,8 @@ export const QuotationSection: React.FC = () => {
               detalle: c.details,
             };
           }),
-          establecimientoDestino:
-            puntosEntrega && puntosEntrega.length > 0 ? puntosEntrega[0].nombreLote : undefined,
-          observaciones: clientTab === "NUEVO" ? formNuevo.observaciones : undefined,
+          establecimientoDestino: targetEstablishmentName || "ESTABLECIMIENTO PRINCIPAL",
+          observaciones: formNuevo.observaciones || undefined,
         });
       } catch (syncErr) {
         console.error("Error sincronizando cotización con portal:", syncErr);
@@ -787,6 +862,7 @@ export const QuotationSection: React.FC = () => {
 
       setIsSubmitting(false);
       setIsModalOpen(false);
+      setIsSuccessModalOpen(true);
       setCartItems([]);
       setFormaPago("Transferencia Bancaria");
       setFormaPagoOtra("");
@@ -1960,7 +2036,7 @@ export const QuotationSection: React.FC = () => {
           className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 animate-fadeIn uppercase"
         >
           <div
-            className="relative bg-white w-full max-w-4xl h-[92vh] max-h-[92vh] flex flex-col rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto"
+            className="relative bg-[#f0f8f2] w-full max-w-4xl h-[92vh] max-h-[92vh] flex flex-col rounded-2xl shadow-2xl border-2 border-campo-green/30 overflow-hidden my-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header del Modal - Fijo en la parte superior */}
@@ -1995,21 +2071,21 @@ export const QuotationSection: React.FC = () => {
               </div>
             </div>
 
-            {/* Pestañas: CLIENTE REGISTRADO vs CLIENTE NUEVO - Fijas */}
-            <div className="shrink-0 grid grid-cols-2 border-b border-slate-200 bg-slate-50">
+            {/* Pestañas destacadas en Verde: CLIENTE NUEVO vs ACCESO CLIENTES REGISTRADO */}
+            <div className="shrink-0 grid grid-cols-2 bg-emerald-950/10 border-b-2 border-campo-green/30 p-2 gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setClientTab("NUEVO");
                   setFormError(null);
                 }}
-                className={`py-2.5 sm:py-3 px-3 sm:px-4 text-xs sm:text-sm font-black transition-all border-b-2 cursor-pointer ${
+                className={`py-2.5 sm:py-3 px-3 sm:px-4 text-xs sm:text-sm font-black transition-all rounded-xl cursor-pointer flex items-center justify-center gap-2 ${
                   clientTab === "NUEVO"
-                    ? "border-campo-green bg-white text-campo-green-900 shadow-2xs"
-                    : "border-transparent text-slate-500 hover:text-slate-800"
+                    ? "bg-campo-green text-white shadow-md shadow-campo-green/20 border-2 border-campo-green-600"
+                    : "bg-white/90 hover:bg-white text-campo-green-950 hover:text-campo-green border border-campo-green/30"
                 }`}
               >
-                CLIENTE NUEVO (REGISTRO)
+                <span>CLIENTE NUEVO</span>
               </button>
               <button
                 type="button"
@@ -2017,13 +2093,18 @@ export const QuotationSection: React.FC = () => {
                   setClientTab("REGISTRADO");
                   setFormError(null);
                 }}
-                className={`py-2.5 sm:py-3 px-3 sm:px-4 text-xs sm:text-sm font-black transition-all border-b-2 cursor-pointer ${
+                className={`py-2.5 sm:py-3 px-3 sm:px-4 text-xs sm:text-sm font-black transition-all rounded-xl cursor-pointer flex items-center justify-center gap-2 ${
                   clientTab === "REGISTRADO"
-                    ? "border-campo-green bg-white text-campo-green-900 shadow-2xs"
-                    : "border-transparent text-slate-500 hover:text-slate-800"
+                    ? "bg-campo-green text-white shadow-md shadow-campo-green/20 border-2 border-campo-green-600"
+                    : "bg-white/90 hover:bg-white text-campo-green-950 hover:text-campo-green border border-campo-green/30"
                 }`}
               >
-                CLIENTE REGISTRADO (ACCESO)
+                <span>ACCESO CLIENTES REGISTRADO</span>
+                {user && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/25 text-white font-black border border-white/30 hidden sm:inline-block">
+                    ACTIVO
+                  </span>
+                )}
               </button>
             </div>
 
@@ -2035,113 +2116,444 @@ export const QuotationSection: React.FC = () => {
               </div>
             )}
 
-            {/* Formulario envolvente con Footer Fijo */}
-            <form
-              onSubmit={handleSubmitQuotation}
-              noValidate
-              className="flex-1 min-h-0 flex flex-col overflow-hidden"
+            {/* Contenedor desplazable con todos los campos */}
+            <div
+              ref={modalScrollRef}
+              className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-3 sm:p-5 lg:p-6 space-y-4"
             >
-              {/* Contenedor desplazable con todos los campos */}
-              <div
-                ref={modalScrollRef}
-                className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-3 sm:p-5 lg:p-6 space-y-4"
-              >
-              {/* TAB 1: CLIENTE REGISTRADO */}
-              {clientTab === "REGISTRADO" && (
-                <div className="space-y-4">
-                  {user && (
-                    <div className="p-3.5 bg-emerald-50 border-2 border-emerald-300 rounded-xl text-emerald-950 text-xs font-bold flex items-center justify-between shadow-xs">
+              {/* ========================================================================= */}
+              {/* CASO 1: USUARIO AUTENTICADO ("NIVEL 4 CON CLAVE")                         */}
+              {/* ========================================================================= */}
+              {user ? (
+                clientTab === "NUEVO" ? (
+                  /* Usuario autenticado que pulsó "CLIENTE NUEVO" */
+                  <div className="bg-white p-5 rounded-2xl border-2 border-campo-green/40 shadow-xs space-y-4 text-center">
+                    <div className="w-12 h-12 rounded-full bg-emerald-100 text-campo-green flex items-center justify-center mx-auto">
+                      <CheckCircle2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-black text-slate-900 uppercase">
+                        YA TENÉS UNA SESIÓN ACTIVA
+                      </h4>
+                      <p className="text-xs text-slate-600 mt-1 uppercase">
+                        ACTUALMENTE ESTÁS IDENTIFICADO COMO <strong>{user.razonSocial || user.usuario}</strong> (CUIT: {user.cuit}).
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Si deseás solicitar la cotización con tus datos actuales, continuá con tu sesión. Si querés registrar otra empresa o productor, cerrá tu sesión primero.
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2.5 justify-center pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setClientTab("REGISTRADO")}
+                        className="py-2.5 px-5 bg-campo-green text-white text-xs font-black rounded-xl hover:bg-campo-green-600 transition-colors cursor-pointer uppercase shadow-md shadow-campo-green/20"
+                      >
+                        CONTINUAR CON MI SESIÓN
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          logout();
+                          setFormError(null);
+                        }}
+                        className="py-2.5 px-5 bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 text-xs font-bold rounded-xl transition-colors border border-slate-300 cursor-pointer uppercase"
+                      >
+                        CERRAR SESIÓN Y REGISTRAR NUEVA CUENTA
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Usuario autenticado en tab "ACCESO CLIENTES REGISTRADO" -> Nivel con clave */
+                  <div className="space-y-4">
+                    {/* Tarjeta de Sesión Activa */}
+                    <div className="p-3.5 bg-emerald-50 border-2 border-campo-green/40 rounded-xl text-emerald-950 text-xs font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
                       <div className="flex items-center gap-2.5">
-                        <CheckCircle2 className="w-4 h-4 text-campo-green shrink-0" />
+                        <div className="w-8 h-8 rounded-lg bg-campo-green text-white flex items-center justify-center shrink-0 shadow-xs">
+                          <CheckCircle2 className="w-5 h-5" />
+                        </div>
                         <div>
-                          <p className="font-black">SESIÓN ACTIVA: {user.razonSocial || user.usuario}</p>
-                          <p className="text-[11px] text-emerald-700 font-medium">CUIT: {user.cuit} · {user.email}</p>
+                          <p className="font-black text-xs sm:text-sm text-slate-900 uppercase">
+                            SESIÓN ACTIVA: {user.razonSocial || user.usuario}
+                          </p>
+                          <p className="text-[11px] text-emerald-800 font-medium uppercase">
+                            CUIT: {user.cuit} · {user.email} {user.localidad ? `· ${user.localidad}, ${user.provincia}` : ""}
+                          </p>
                         </div>
                       </div>
-                      <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-campo-green text-white rounded-lg shadow-2xs">
-                        CLIENTE AUTENTICADO
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          logout();
+                          setFormError(null);
+                        }}
+                        className="text-[11px] font-bold text-slate-600 hover:text-red-600 hover:underline transition-colors self-start sm:self-center cursor-pointer uppercase"
+                      >
+                        CERRAR SESIÓN / CAMBIAR CUENTA
+                      </button>
                     </div>
-                  )}
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                      CUIT O CORREO ELECTRÓNICO *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="INGRESE SU CUIT O EMAIL"
-                      value={formRegistrado.identifier}
-                      onChange={(e) =>
-                        setFormRegistrado((prev) => ({
-                          ...prev,
-                          identifier: e.target.value.toUpperCase(),
-                        }))
-                      }
-                      className="w-full uppercase py-2.5 px-3.5 rounded-xl border border-slate-300 text-sm font-semibold focus:border-campo-green focus:ring-2 focus:ring-campo-green/20 focus:outline-none"
-                    />
-                  </div>
 
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                      CONTRASEÑA *
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="••••••••••••"
-                      value={formRegistrado.password}
-                      onChange={(e) =>
-                        setFormRegistrado((prev) => ({
-                          ...prev,
-                          password: e.target.value,
-                        }))
-                      }
-                      className="w-full py-2.5 px-3.5 rounded-xl border border-slate-300 text-sm font-semibold focus:border-campo-green focus:ring-2 focus:ring-campo-green/20 focus:outline-none"
-                    />
-                  </div>
+                    {/* 5. ELECCIÓN DE ESTABLECIMIENTOS, LOTE O TRANQUERA (EXCLUSIVO CLIENTE REGISTRADO) */}
+                    <div className="bg-white p-4 sm:p-5 rounded-xl border-2 border-campo-green/40 shadow-xs space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2.5 text-slate-900">
+                          <div className="w-8 h-8 rounded-lg bg-campo-green text-white flex items-center justify-center shrink-0 shadow-xs">
+                            <MapPin className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs sm:text-sm font-black uppercase text-slate-900 leading-tight">
+                              ESTABLECIMIENTO, LOTE O TRANQUERA DE ENTREGA *
+                            </h4>
+                            <p className="text-[11px] text-slate-500 font-medium">
+                              INDICÁ DÓNDE SE DESCARGARÁ O ENTREGARÁ ESTA OPERACIÓN
+                            </p>
+                          </div>
+                        </div>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-campo-green-50 text-campo-green-800 text-[10px] font-black tracking-wider uppercase self-start sm:self-auto border border-campo-green-200">
+                          DESTINO DE DESCARGA
+                        </span>
+                      </div>
 
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={() => handleGoogleAuth("LOGIN")}
-                      disabled={isGoogleLoading}
-                      className="w-full py-2.5 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-xs uppercase disabled:opacity-50"
-                    >
-                      {isGoogleLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-campo-green" />
-                      ) : (
-                        <svg className="w-4 h-4" viewBox="0 0 24 24">
-                          <path
-                            fill="#4285F4"
-                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                          />
-                          <path
-                            fill="#34A853"
-                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                          />
-                          <path
-                            fill="#FBBC05"
-                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                          />
-                          <path
-                            fill="#EA4335"
-                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                          />
-                        </svg>
+                      {/* Si el cliente tiene establecimientos guardados */}
+                      {establishments && establishments.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="block text-[11px] font-black uppercase text-slate-700">
+                            SELECCIONÁ UNO DE TUS ESTABLECIMIENTOS GUARDADOS:
+                          </label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {establishments.map((est) => {
+                              const isSelected = !useCustomPuntoEntrega && selectedEstablishmentId === est.id;
+                              return (
+                                <button
+                                  type="button"
+                                  key={est.id}
+                                  onClick={() => {
+                                    setSelectedEstablishmentId(est.id);
+                                    setUseCustomPuntoEntrega(false);
+                                  }}
+                                  className={`p-3 rounded-xl border-2 text-left transition-all flex items-start justify-between gap-2 cursor-pointer ${
+                                    isSelected
+                                      ? "border-campo-green bg-campo-green-50/70 text-slate-900 shadow-xs ring-2 ring-campo-green/20"
+                                      : "border-slate-200 bg-white hover:border-campo-green/40 text-slate-700"
+                                  }`}
+                                >
+                                  <div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-xs font-black text-slate-900 uppercase">{est.nombre}</span>
+                                      {est.esPrincipal && (
+                                        <span className="text-[9px] px-1.5 py-0.2 bg-campo-green text-white rounded font-bold uppercase">
+                                          PRINCIPAL
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 font-semibold mt-0.5 uppercase">
+                                      {est.localidad}, {est.provincia} {est.hectareas ? `· ${est.hectareas} HA` : ""}
+                                    </p>
+                                    {est.referenciaAcceso && (
+                                      <p className="text-[10px] text-slate-400 mt-0.5 italic uppercase">
+                                        ACCESO: {est.referenciaAcceso}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <span
+                                    className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border mt-0.5 ${
+                                      isSelected
+                                        ? "bg-campo-green border-campo-green text-white"
+                                        : "border-slate-300 bg-white"
+                                    }`}
+                                  >
+                                    {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={() => setUseCustomPuntoEntrega(!useCustomPuntoEntrega)}
+                              className={`w-full p-2.5 rounded-xl border-2 text-left text-xs font-bold transition-all flex items-center justify-between cursor-pointer uppercase ${
+                                useCustomPuntoEntrega
+                                  ? "border-campo-green bg-campo-green-50 text-campo-green-950 font-black"
+                                  : "border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700"
+                              }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <LocateFixed className="w-4 h-4 text-campo-green" />
+                                <span>DEFINIR OTRA TRANQUERA O COORDENADAS GPS SATELITALES</span>
+                              </span>
+                              <span className="text-[10px] underline text-campo-green font-black">
+                                {useCustomPuntoEntrega ? "OCULTAR COORDENADAS" : "CONFIGURAR GPS"}
+                              </span>
+                            </button>
+                          </div>
+                        </div>
                       )}
-                      <span>
-                        {isGoogleLoading
-                          ? "CONECTANDO CON GOOGLE..."
-                          : "INICIAR SESIÓN CON GOOGLE"}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              )}
 
-              {/* TAB 2: CLIENTE NUEVO CON FONDO VERDE SUAVE Y TARJETAS DISTINTIVAS */}
-              {clientTab === "NUEVO" && (
+                      {/* Bloque satelital / coordenadas GPS (si no hay establecimientos guardados o si activó custom) */}
+                      {(!establishments || establishments.length === 0 || useCustomPuntoEntrega) && (
+                        <div className="space-y-3.5 pt-1">
+                          {puntosEntrega.map((punto, index) => (
+                            <div
+                              key={punto.id}
+                              className={`p-3.5 sm:p-4 rounded-xl border-2 transition-all ${
+                                index === 0
+                                  ? "border-campo-green/40 bg-campo-green-50/20"
+                                  : "border-slate-200 bg-slate-50/60"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-campo-green text-white text-[10px] font-black">
+                                    {index + 1}
+                                  </span>
+                                  <span className="text-xs font-black text-slate-900 uppercase tracking-wide">
+                                    {index === 0 ? "PUNTO DE DESCARGA PRINCIPAL" : `PUNTO DE DESCARGA ALTERNATIVO #${index + 1}`}
+                                  </span>
+                                </div>
+                                {puntosEntrega.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removePuntoEntrega(punto.id)}
+                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 p-1 transition-colors uppercase cursor-pointer"
+                                    title="ELIMINAR ESTA OPCIÓN"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>QUITAR</span>
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                                <div className="sm:col-span-7">
+                                  <label className="block text-[10px] font-black text-slate-700 uppercase mb-1">
+                                    NOMBRE O IDENTIFICACIÓN DEL CAMPO / LOTE *
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="EJ. CAMPO LA ESMERALDA - LOTE 3 / TRANQUERA NORTE"
+                                    value={punto.nombreLote}
+                                    onChange={(e) => updatePuntoEntrega(punto.id, "nombreLote", e.target.value.toUpperCase())}
+                                    className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold focus:border-campo-green focus:outline-none bg-white"
+                                  />
+                                </div>
+
+                                <div className="sm:col-span-5">
+                                  <label className="block text-[10px] font-black text-slate-700 uppercase mb-1">
+                                    TIPO DE INSTALACIÓN DE DESCARGA
+                                  </label>
+                                  <select
+                                    value={punto.tipoDescarga || "TRANQUERA DE CAMPO"}
+                                    onChange={(e) => updatePuntoEntrega(punto.id, "tipoDescarga", e.target.value)}
+                                    className="w-full uppercase py-2 px-2.5 rounded-lg border border-slate-300 text-xs font-semibold focus:border-campo-green focus:outline-none bg-white cursor-pointer"
+                                  >
+                                    <option value="TRANQUERA DE CAMPO">TRANQUERA DE CAMPO</option>
+                                    <option value="GALPÓN / DEPÓSITO DE INSUMOS">GALPÓN / DEPÓSITO DE INSUMOS</option>
+                                    <option value="LOTE DIRECTO DE SIEMBRA">LOTE DIRECTO DE SIEMBRA</option>
+                                    <option value="ACOPIO / PLANTA DE SILOS">ACOPIO / PLANTA DE SILOS</option>
+                                    <option value="OTRA INSTALACIÓN RURAL">OTRA INSTALACIÓN RURAL</option>
+                                  </select>
+                                </div>
+
+                                <div className="sm:col-span-12">
+                                  <label className="block text-[10px] font-black text-slate-700 uppercase mb-1">
+                                    REFERENCIA DE ACCESO Y TRANQUERA (RUTA / KM / SEÑALIZACIÓN)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="EJ. RUTA 8 KM 224, TRANQUERA BLANCA A 2 KM DEL CRUCE"
+                                    value={punto.referenciaAcceso}
+                                    onChange={(e) => updatePuntoEntrega(punto.id, "referenciaAcceso", e.target.value.toUpperCase())}
+                                    className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold focus:border-campo-green focus:outline-none bg-white"
+                                  />
+                                </div>
+
+                                <div className="sm:col-span-12">
+                                  <label className="block text-[10px] font-black text-slate-700 uppercase mb-1">
+                                    COORDENADAS SATELITALES GPS (LATITUD, LONGITUD)
+                                  </label>
+                                  <div className="flex flex-wrap sm:flex-nowrap gap-2 min-w-0">
+                                    <input
+                                      type="text"
+                                      placeholder="EJ. -33.8941, -60.5732 O LINK MAPS"
+                                      value={punto.coordenadasGps}
+                                      onChange={(e) => updatePuntoEntrega(punto.id, "coordenadasGps", e.target.value)}
+                                      className="flex-1 min-w-[160px] py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold focus:border-campo-green focus:outline-none bg-white"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCapturarGps(punto.id)}
+                                      disabled={gpsLoadingId === punto.id}
+                                      title="OBTENER MI UBICACIÓN GPS ACTUAL CON EL DISPOSITIVO"
+                                      className="px-3.5 py-2 bg-campo-green hover:bg-campo-green-600 text-white rounded-lg text-xs font-black transition-colors flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer disabled:opacity-50"
+                                    >
+                                      {gpsLoadingId === punto.id ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      ) : (
+                                        <LocateFixed className="w-3.5 h-3.5" />
+                                      )}
+                                      <span className="text-[11px]">GPS ACTUAL</span>
+                                    </button>
+                                    {punto.coordenadasGps && (
+                                      <a
+                                        href={punto.linkMaps || `https://www.google.com/maps?q=${encodeURIComponent(punto.coordenadasGps)}&t=k`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title="VER ESTE LOTE EN GOOGLE MAPS SATELITAL"
+                                        className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shrink-0 uppercase"
+                                      >
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                        <span className="text-[10px]">SATÉLITE</span>
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {gpsSuccessNotice?.id === punto.id && (
+                                <p className="mt-2 text-[10px] font-bold text-campo-green flex items-center gap-1 uppercase">
+                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                  <span>{gpsSuccessNotice.msg}</span>
+                                </p>
+                              )}
+                            </div>
+                          ))}
+
+                          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={addPuntoEntrega}
+                              className="w-full sm:w-auto py-2.5 px-4 rounded-xl border-2 border-dashed border-campo-green hover:border-campo-green-600 bg-campo-green-50/80 hover:bg-campo-green-100 text-campo-green-950 font-black text-xs transition-all flex items-center justify-center gap-2 uppercase cursor-pointer"
+                            >
+                              <Plus className="w-4 h-4 text-campo-green" />
+                              <span>+ AGREGAR OTRA OPCIÓN DE ENTREGA SATELITAL</span>
+                            </button>
+                            <span className="text-[11px] text-slate-500 font-medium text-center sm:text-right">
+                              * Podés registrar varias tranqueras o campos para repartir la descarga.
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 4. FORMA DE PAGO DE LA OPERACIÓN (EXCLUSIVO CLIENTE REGISTRADO) */}
+                    <div className="bg-white p-4 sm:p-5 rounded-2xl border-2 border-campo-green/40 shadow-xs space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2.5 text-slate-900">
+                          <div className="w-8 h-8 rounded-lg bg-campo-green text-white flex items-center justify-center shrink-0 shadow-xs">
+                            <CreditCard className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs sm:text-sm font-black uppercase text-slate-900 leading-tight">
+                              FORMA DE PAGO DE LA OPERACIÓN *
+                            </h4>
+                            <p className="text-[11px] text-slate-500 font-medium">
+                              SELECCIONÁ CÓMO PREFERÍS CANCELAR O PACTAR ESTA COTIZACIÓN
+                            </p>
+                          </div>
+                        </div>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-campo-green-50 text-campo-green-800 text-[10px] font-black tracking-wider uppercase self-start sm:self-auto border border-campo-green-200">
+                          CONDICIÓN DE PAGO
+                        </span>
+                      </div>
+
+                      {/* Grilla con las 5 Opciones Requeridas */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                        {PAYMENT_METHODS.map((method) => {
+                          const isSelected = formaPago === method.id;
+                          const IconComp = method.icon;
+                          return (
+                            <button
+                              type="button"
+                              key={method.id}
+                              onClick={() => {
+                                setFormaPago(method.id);
+                                setFormError(null);
+                              }}
+                              className={`p-3 rounded-xl border-2 text-left transition-all flex items-start gap-2.5 cursor-pointer ${
+                                isSelected
+                                  ? "border-campo-green bg-campo-green-50/70 text-slate-900 shadow-xs ring-2 ring-campo-green/20"
+                                  : "border-slate-200 bg-white hover:border-campo-green/40 hover:bg-slate-50 text-slate-700"
+                              }`}
+                            >
+                              <div
+                                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                                  isSelected
+                                    ? "bg-campo-green text-white shadow-xs"
+                                    : "bg-slate-100 text-slate-500"
+                                }`}
+                              >
+                                <IconComp className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="text-xs font-black uppercase text-slate-900 leading-tight">
+                                    {method.number}. {method.label}
+                                  </span>
+                                  <span
+                                    className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border ${
+                                      isSelected
+                                        ? "bg-campo-green border-campo-green text-white"
+                                        : "border-slate-300 bg-white"
+                                    }`}
+                                  >
+                                    {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 font-semibold mt-0.5 uppercase">
+                                  {method.desc}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Campo adicional cuando se selecciona "Otra (especificar)" */}
+                      {formaPago === "Otra (especificar)" && (
+                        <div className="p-3.5 bg-amber-50/70 rounded-xl border-2 border-amber-300 space-y-2 animate-fadeIn">
+                          <label className="block text-[11px] font-black uppercase text-amber-950">
+                            ESPECIFICÁ LA CONDICIÓN O FORMA DE PAGO PARTICULAR *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="EJ. 30 DÍAS CON VALORES / 50% ANTICIPO Y SALDO A COSECHA / OTRA..."
+                            value={formaPagoOtra}
+                            onChange={(e) => setFormaPagoOtra(e.target.value.toUpperCase())}
+                            className="w-full uppercase py-2 px-3 rounded-lg border-2 border-amber-400 text-xs font-bold focus:border-campo-green focus:outline-none bg-white text-slate-900 shadow-xs"
+                          />
+                          <p className="text-[10px] text-amber-800 font-medium">
+                            * Indicanos plazos, instrumentos o convenios especiales para que nuestro equipo comercial lo evalúe.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Observaciones Generales */}
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+                      <label className="block text-[11px] font-black uppercase text-slate-700 mb-1">
+                        OBSERVACIONES ADICIONALES PARA LA COTIZACIÓN (OPCIONAL)
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="DETALLES DE ENTREGA, PLAZOS O CONDICIONES PARTICULARES..."
+                        value={formNuevo.observaciones}
+                        onChange={(e) =>
+                          setFormNuevo((prev) => ({
+                            ...prev,
+                            observaciones: e.target.value.toUpperCase(),
+                          }))
+                        }
+                        className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold focus:border-campo-green focus:outline-none bg-white"
+                      />
+                    </div>
+                  </div>
+                )
+              ) : clientTab === "NUEVO" ? (
+                /* ========================================================================= */
+                /* CASO 2: CLIENTE NUEVO (REGISTRO - SIN FORMA DE PAGO NI TRANQUERAS)        */
+                /* ========================================================================= */
                 <div className="bg-[#f0f8f2] p-4 sm:p-6 rounded-2xl border-2 border-campo-green/20 space-y-4 shadow-xs">
                   <div className="bg-campo-green-100/90 p-3 rounded-xl border border-campo-green-300/80 text-campo-green-950 text-xs font-black flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-campo-green shrink-0" />
@@ -2162,7 +2574,7 @@ export const QuotationSection: React.FC = () => {
                       type="button"
                       onClick={() => handleGoogleAuth("REGISTER")}
                       disabled={isGoogleLoading}
-                      className="w-full sm:w-auto py-2 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-2xs hover:border-campo-green shrink-0 uppercase disabled:opacity-50"
+                      className="w-full sm:w-auto py-2 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-2xs hover:border-campo-green shrink-0 uppercase disabled:opacity-50 cursor-pointer"
                     >
                       {isGoogleLoading ? (
                         <Loader2 className="w-4 h-4 animate-spin text-campo-green" />
@@ -2353,7 +2765,7 @@ export const QuotationSection: React.FC = () => {
                               localidad: defaultLoc,
                             }));
                           }}
-                          className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold bg-white focus:outline-none focus:border-campo-green"
+                          className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold bg-white focus:outline-none focus:border-campo-green cursor-pointer"
                         >
                           {ARGENTINE_PROVINCES.map((prov) => (
                             <option key={prov} value={prov}>
@@ -2375,7 +2787,7 @@ export const QuotationSection: React.FC = () => {
                               localidad: e.target.value.toUpperCase(),
                             }))
                           }
-                          className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold bg-white focus:outline-none focus:border-campo-green"
+                          className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold bg-white focus:outline-none focus:border-campo-green cursor-pointer"
                         >
                           {currentLocalities.map((loc) => (
                             <option key={loc} value={loc}>
@@ -2453,178 +2865,6 @@ export const QuotationSection: React.FC = () => {
                     )}
                   </div>
 
-                  {/* NUEVO BLOQUE: GEOPOSICIÓN SATELITAL DE ENTREGA (1 O MÁS OPCIONES) */}
-                  <div className="bg-white p-4 sm:p-5 rounded-xl border-2 border-campo-green/40 shadow-xs space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
-                      <div className="flex items-center gap-2.5 text-slate-900">
-                        <div className="w-8 h-8 rounded-lg bg-campo-green text-white flex items-center justify-center shrink-0 shadow-xs">
-                          <MapPin className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-xs sm:text-sm font-black uppercase text-slate-900 leading-tight">
-                              GEOPOSICIÓN SATELITAL DE ENTREGA (LOTE / TRANQUERA)
-                            </h4>
-                          </div>
-                          <p className="text-[11px] text-slate-500 font-medium">
-                            INDICÁ UNA O MÁS COORDENADAS SATELITALES O REFERENCIAS DE DESCARGA DIRECTA EN TU CAMPO
-                          </p>
-                        </div>
-                      </div>
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-campo-green-50 text-campo-green-800 text-[10px] font-black tracking-wider uppercase self-start sm:self-auto border border-campo-green-200">
-                        {puntosEntrega.length} {puntosEntrega.length === 1 ? "OPCIÓN DE ENTREGA" : "OPCIONES DE ENTREGA"}
-                      </span>
-                    </div>
-
-                    {/* Lista de Puntos de Entrega Satelital */}
-                    <div className="space-y-3.5">
-                      {puntosEntrega.map((punto, index) => (
-                        <div
-                          key={punto.id}
-                          className={`p-3.5 sm:p-4 rounded-xl border-2 transition-all ${
-                            index === 0
-                              ? "border-campo-green/40 bg-campo-green-50/20"
-                              : "border-slate-200 bg-slate-50/60"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-campo-green text-white text-[10px] font-black">
-                                {index + 1}
-                              </span>
-                              <span className="text-xs font-black text-slate-900 uppercase tracking-wide">
-                                {index === 0 ? "OPCIÓN #1: PUNTO DE DESCARGA PRINCIPAL" : `OPCIÓN #${index + 1}: PUNTO DE DESCARGA ALTERNATIVO`}
-                              </span>
-                            </div>
-                            {puntosEntrega.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => removePuntoEntrega(punto.id)}
-                                className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 p-1 transition-colors"
-                                title="ELIMINAR ESTA OPCIÓN"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span>QUITAR</span>
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                            {/* Nombre / Identificación */}
-                            <div className="sm:col-span-7">
-                              <label className="block text-[10px] font-black text-slate-700 uppercase mb-1">
-                                NOMBRE O IDENTIFICACIÓN DEL CAMPO / LOTE *
-                              </label>
-                              <input
-                                type="text"
-                                placeholder="EJ. CAMPO LA ESMERALDA - LOTE 3 / TRANQUERA NORTE"
-                                value={punto.nombreLote}
-                                onChange={(e) => updatePuntoEntrega(punto.id, "nombreLote", e.target.value.toUpperCase())}
-                                className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold focus:border-campo-green focus:outline-none bg-white"
-                              />
-                            </div>
-
-                            {/* Tipo de Punto de Descarga */}
-                            <div className="sm:col-span-5">
-                              <label className="block text-[10px] font-black text-slate-700 uppercase mb-1">
-                                TIPO DE INSTALACIÓN DE DESCARGA
-                              </label>
-                              <select
-                                value={punto.tipoDescarga || "TRANQUERA DE CAMPO"}
-                                onChange={(e) => updatePuntoEntrega(punto.id, "tipoDescarga", e.target.value)}
-                                className="w-full uppercase py-2 px-2.5 rounded-lg border border-slate-300 text-xs font-semibold focus:border-campo-green focus:outline-none bg-white"
-                              >
-                                <option value="TRANQUERA DE CAMPO">TRANQUERA DE CAMPO</option>
-                                <option value="GALPÓN / DEPÓSITO DE INSUMOS">GALPÓN / DEPÓSITO DE INSUMOS</option>
-                                <option value="LOTE DIRECTO DE SIEMBRA">LOTE DIRECTO DE SIEMBRA</option>
-                                <option value="ACOPIO / PLANTA DE SILOS">ACOPIO / PLANTA DE SILOS</option>
-                                <option value="OTRA INSTALACIÓN RURAL">OTRA INSTALACIÓN RURAL</option>
-                              </select>
-                            </div>
-
-                            {/* Referencia de Acceso (Fila Completa para evitar superposición) */}
-                            <div className="sm:col-span-12">
-                              <label className="block text-[10px] font-black text-slate-700 uppercase mb-1">
-                                REFERENCIA DE ACCESO Y TRANQUERA (RUTA / KM / SEÑALIZACIÓN)
-                              </label>
-                              <input
-                                type="text"
-                                placeholder="EJ. RUTA 8 KM 224, TRANQUERA BLANCA A 2 KM DEL CRUCE"
-                                value={punto.referenciaAcceso}
-                                onChange={(e) => updatePuntoEntrega(punto.id, "referenciaAcceso", e.target.value.toUpperCase())}
-                                className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold focus:border-campo-green focus:outline-none bg-white"
-                              />
-                            </div>
-
-                            {/* Coordenadas Satelitales GPS (Fila Completa con botones holgados) */}
-                            <div className="sm:col-span-12">
-                              <label className="block text-[10px] font-black text-slate-700 uppercase mb-1">
-                                COORDENADAS SATELITALES GPS (LATITUD, LONGITUD)
-                              </label>
-                              <div className="flex flex-wrap sm:flex-nowrap gap-2 min-w-0">
-                                <input
-                                  type="text"
-                                  placeholder="EJ. -33.8941, -60.5732 O LINK MAPS"
-                                  value={punto.coordenadasGps}
-                                  onChange={(e) => updatePuntoEntrega(punto.id, "coordenadasGps", e.target.value)}
-                                  className="flex-1 min-w-[160px] py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold focus:border-campo-green focus:outline-none bg-white"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleCapturarGps(punto.id)}
-                                  disabled={gpsLoadingId === punto.id}
-                                  title="OBTENER MI UBICACIÓN GPS ACTUAL CON EL DISPOSITIVO"
-                                  className="px-3.5 py-2 bg-campo-green hover:bg-campo-green-600 text-white rounded-lg text-xs font-black transition-colors flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer"
-                                >
-                                  {gpsLoadingId === punto.id ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  ) : (
-                                    <LocateFixed className="w-3.5 h-3.5" />
-                                  )}
-                                  <span className="text-[11px]">GPS ACTUAL</span>
-                                </button>
-                                {punto.coordenadasGps && (
-                                  <a
-                                    href={punto.linkMaps || `https://www.google.com/maps?q=${encodeURIComponent(punto.coordenadasGps)}&t=k`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title="VER ESTE LOTE EN GOOGLE MAPS SATELITAL"
-                                    className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shrink-0"
-                                  >
-                                    <ExternalLink className="w-3.5 h-3.5" />
-                                    <span className="text-[10px]">SATÉLITE</span>
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {gpsSuccessNotice?.id === punto.id && (
-                            <p className="mt-2 text-[10px] font-bold text-campo-green flex items-center gap-1">
-                              <Check className="w-3.5 h-3.5 stroke-[3]" />
-                              <span>{gpsSuccessNotice.msg}</span>
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Botón para Agregar Más Opciones de Entrega */}
-                    <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={addPuntoEntrega}
-                        className="w-full sm:w-auto py-2.5 px-4 rounded-xl border-2 border-dashed border-campo-green hover:border-campo-green-600 bg-campo-green-50/80 hover:bg-campo-green-100 text-campo-green-950 font-black text-xs transition-all flex items-center justify-center gap-2"
-                      >
-                        <Plus className="w-4 h-4 text-campo-green" />
-                        <span>+ AGREGAR OTRA OPCIÓN DE ENTREGA SATELITAL (LOTE / CAMPO ADICIONAL)</span>
-                      </button>
-                      <span className="text-[11px] text-slate-500 font-medium text-center sm:text-right">
-                        * Podés registrar varias tranqueras o campos para repartir la descarga.
-                      </span>
-                    </div>
-                  </div>
-
                   {/* 11. Horario de Contacto */}
                   <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
                     <label className="block text-[11px] font-black uppercase text-slate-700 mb-2">
@@ -2638,7 +2878,7 @@ export const QuotationSection: React.FC = () => {
                             type="button"
                             key={horario}
                             onClick={() => toggleHorario(horario)}
-                            className={`flex items-center gap-2.5 p-2 rounded-lg border text-left text-xs transition-colors uppercase ${
+                            className={`flex items-center gap-2.5 p-2 rounded-lg border text-left text-xs transition-colors uppercase cursor-pointer ${
                               isChecked
                                 ? "border-campo-green bg-campo-green-50 text-campo-green-950 font-bold"
                                 : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -2683,13 +2923,13 @@ export const QuotationSection: React.FC = () => {
                   <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-black uppercase text-slate-700">
-                        USUARIO Y CONTRASEÑA
+                        DEFINÍ TU USUARIO Y CONTRASEÑA PARA TU CUENTA
                       </span>
                       <button
                         type="button"
                         onClick={() => handleGoogleAuth("REGISTER")}
                         disabled={isGoogleLoading}
-                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-campo-green hover:underline uppercase disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-campo-green hover:underline uppercase disabled:opacity-50 cursor-pointer"
                       >
                         {isGoogleLoading ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin text-campo-green" />
@@ -2739,7 +2979,7 @@ export const QuotationSection: React.FC = () => {
                       <div>
                         <input
                           type="password"
-                          placeholder="CONTRASEÑA (OPCIÓN CONTRASEÑA DE GMAIL)"
+                          placeholder="CONTRASEÑA"
                           value={formNuevo.password}
                           onChange={(e) =>
                             setFormNuevo((prev) => ({
@@ -2753,147 +2993,168 @@ export const QuotationSection: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              )}
-
-              {/* SECCIÓN OBLIGATORIA: FORMA DE PAGO PREFERIDA (APLICA A CLIENTE NUEVO Y REGISTRADO) */}
-              <div className="bg-white p-4 sm:p-5 rounded-2xl border-2 border-campo-green/40 shadow-xs space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-2.5 text-slate-900">
-                    <div className="w-8 h-8 rounded-lg bg-campo-green text-white flex items-center justify-center shrink-0 shadow-xs">
-                      <CreditCard className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-black uppercase text-slate-900 leading-tight">
-                        FORMA DE PAGO DE LA OPERACIÓN *
-                      </h4>
-                      <p className="text-[11px] text-slate-500 font-medium">
-                        SELECCIONÁ CÓMO PREFERÍS CANCELAR O PACTAR ESTA COTIZACIÓN
-                      </p>
-                    </div>
+              ) : (
+                /* ========================================================================= */
+                /* CASO 3: ACCESO CLIENTES REGISTRADO (LOGIN - SIN FORMA DE PAGO NI DESTINO) */
+                /* ========================================================================= */
+                <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-campo-green shrink-0" />
+                    <span>INGRESÁ CON TU USUARIO/CUIT Y CONTRASEÑA PARA CONFIRMAR TU COTIZACIÓN</span>
                   </div>
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-campo-green-50 text-campo-green-800 text-[10px] font-black tracking-wider uppercase self-start sm:self-auto border border-campo-green-200">
-                    CONDICIÓN DE PAGO
-                  </span>
-                </div>
 
-                {/* Grilla con las 5 Opciones Requeridas */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                  {PAYMENT_METHODS.map((method) => {
-                    const isSelected = formaPago === method.id;
-                    const IconComp = method.icon;
-                    return (
-                      <button
-                        type="button"
-                        key={method.id}
-                        onClick={() => {
-                          setFormaPago(method.id);
-                          setFormError(null);
-                        }}
-                        className={`p-3 rounded-xl border-2 text-left transition-all flex items-start gap-2.5 cursor-pointer ${
-                          isSelected
-                            ? "border-campo-green bg-campo-green-50/70 text-slate-900 shadow-xs ring-2 ring-campo-green/20"
-                            : "border-slate-200 bg-white hover:border-campo-green/40 hover:bg-slate-50 text-slate-700"
-                        }`}
-                      >
-                        <div
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                            isSelected
-                              ? "bg-campo-green text-white shadow-xs"
-                              : "bg-slate-100 text-slate-500"
-                          }`}
-                        >
-                          <IconComp className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-xs font-black uppercase text-slate-900 leading-tight">
-                              {method.number}. {method.label}
-                            </span>
-                            <span
-                              className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border ${
-                                isSelected
-                                  ? "bg-campo-green border-campo-green text-white"
-                                  : "border-slate-300 bg-white"
-                              }`}
-                            >
-                              {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
-                            {method.desc}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Campo adicional cuando se selecciona "Otra (especificar)" */}
-                {formaPago === "Otra (especificar)" && (
-                  <div className="p-3.5 bg-amber-50/70 rounded-xl border-2 border-amber-300 space-y-2 animate-fadeIn">
-                    <label className="block text-[11px] font-black uppercase text-amber-950">
-                      ESPECIFICÁ LA CONDICIÓN O FORMA DE PAGO PARTICULAR *
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      CUIT O CORREO ELECTRÓNICO *
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="EJ. 30 DÍAS CON VALORES / 50% ANTICIPO Y SALDO A COSECHA / OTRA..."
-                      value={formaPagoOtra}
-                      onChange={(e) => setFormaPagoOtra(e.target.value.toUpperCase())}
-                      className="w-full uppercase py-2 px-3 rounded-lg border-2 border-amber-400 text-xs font-bold focus:border-campo-green focus:outline-none bg-white text-slate-900 shadow-xs"
+                      placeholder="INGRESE SU CUIT O EMAIL"
+                      value={formRegistrado.identifier}
+                      onChange={(e) =>
+                        setFormRegistrado((prev) => ({
+                          ...prev,
+                          identifier: e.target.value.toUpperCase(),
+                        }))
+                      }
+                      className="w-full uppercase py-2.5 px-3.5 rounded-xl border border-slate-300 text-sm font-semibold focus:border-campo-green focus:ring-2 focus:ring-campo-green/20 focus:outline-none"
                     />
-                    <p className="text-[10px] text-amber-800 font-medium">
-                      * Indicanos plazos, instrumentos o convenios especiales para que nuestro equipo comercial lo evalúe.
-                    </p>
                   </div>
-                )}
-              </div>
 
-              </div>
-
-              {/* Pie Fijo con Botones de Salida y Confirmación (SIEMPRE VISIBLE EN PANTALLA) */}
-              <div className="shrink-0 p-3.5 sm:p-4 border-t border-slate-200 bg-white shadow-lg space-y-2">
-                {formError && (
-                  <div className="text-center text-xs font-bold text-red-600 bg-red-50 p-2 rounded-lg border border-red-200 flex items-center justify-center gap-1.5">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                    <span>{formError}</span>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      CONTRASEÑA *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••••••"
+                      value={formRegistrado.password}
+                      onChange={(e) =>
+                        setFormRegistrado((prev) => ({
+                          ...prev,
+                          password: e.target.value,
+                        }))
+                      }
+                      className="w-full py-2.5 px-3.5 rounded-xl border border-slate-300 text-sm font-semibold focus:border-campo-green focus:ring-2 focus:ring-campo-green/20 focus:outline-none"
+                    />
                   </div>
-                )}
-                <div className="flex flex-col sm:flex-row items-center gap-3">
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => handleGoogleAuth("LOGIN")}
+                      disabled={isGoogleLoading}
+                      className="w-full py-2.5 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-xs uppercase disabled:opacity-50 cursor-pointer"
+                    >
+                      {isGoogleLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-campo-green" />
+                      ) : (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24">
+                          <path
+                            fill="#4285F4"
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                          />
+                        </svg>
+                      )}
+                      <span>
+                        {isGoogleLoading
+                          ? "CONECTANDO CON GOOGLE..."
+                          : "INICIAR SESIÓN CON GOOGLE"}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Pie Fijo con Botones Contextuales (SIEMPRE VISIBLE EN PANTALLA) */}
+            <div className="shrink-0 p-3.5 sm:p-4 border-t border-campo-green/20 bg-white shadow-lg space-y-2">
+              {formError && (
+                <div className="text-center text-xs font-bold text-red-600 bg-red-50 p-2 rounded-lg border border-red-200 flex items-center justify-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                  <span>{formError}</span>
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="w-full sm:w-auto py-3 px-5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs uppercase transition-colors shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>← VOLVER (ESC)</span>
+                </button>
+
+                {/* BOTÓN CONTEXTUAL SEGÚN EL NIVEL Y ESTADO DEL USUARIO */}
+                {user ? (
+                  clientTab === "NUEVO" ? (
+                    <button
+                      type="button"
+                      onClick={() => setClientTab("REGISTRADO")}
+                      className="flex-1 w-full py-3.5 px-6 rounded-xl bg-campo-green hover:bg-campo-green-600 text-white font-black text-sm transition-all shadow-lg shadow-campo-green/20 flex items-center justify-center gap-2 uppercase cursor-pointer"
+                    >
+                      <span>CONTINUAR A LA COTIZACIÓN CON MI SESIÓN ACTUAL</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSubmitQuotation}
+                      disabled={isSubmitting}
+                      className="flex-1 w-full py-3.5 px-6 rounded-xl bg-campo-green hover:bg-campo-green-600 text-white font-black text-sm transition-all shadow-lg shadow-campo-green/20 flex items-center justify-center gap-2 uppercase cursor-pointer disabled:opacity-50"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>PROCESANDO Y ENVIANDO COTIZACIÓN...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="w-4 h-4" />
+                          <span>CONFIRMAR Y ENVIAR COTIZACIÓN OFICIAL</span>
+                        </>
+                      )}
+                    </button>
+                  )
+                ) : clientTab === "NUEVO" ? (
                   <button
                     type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="w-full sm:w-auto py-3 px-5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs uppercase transition-colors shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <span>← VOLVER (ESC)</span>
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
+                    onClick={handleRegisterAndContinue}
                     className="flex-1 w-full py-3.5 px-6 rounded-xl bg-campo-green hover:bg-campo-green-600 text-white font-black text-sm transition-all shadow-lg shadow-campo-green/20 flex items-center justify-center gap-2 uppercase cursor-pointer"
                   >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>PROCESANDO Y ENVIANDO COTIZACIÓN...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Mail className="w-4 h-4" />
-                        <span>
-                          {clientTab === "NUEVO"
-                            ? "CONFIRMAR REGISTRO Y ENVIAR COTIZACIÓN"
-                            : "CONFIRMAR Y ENVIAR COTIZACIÓN"}
-                        </span>
-                      </>
-                    )}
+                    <span>CREAR CUENTA Y CONTINUAR A LA COTIZACIÓN</span>
+                    <ArrowRight className="w-4 h-4" />
                   </button>
-                </div>
-                <p className="text-center text-[10px] text-slate-400 uppercase">
-                  LA COTIZACIÓN SERÁ PROCESADA EXCLUSIVAMENTE POR NUESTRO DEPARTAMENTO COMERCIAL.
-                </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleLoginAndContinue}
+                    className="flex-1 w-full py-3.5 px-6 rounded-xl bg-campo-green hover:bg-campo-green-600 text-white font-black text-sm transition-all shadow-lg shadow-campo-green/20 flex items-center justify-center gap-2 uppercase cursor-pointer"
+                  >
+                    <span>INGRESAR A MI CUENTA Y CONTINUAR</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-            </form>
+              <p className="text-center text-[10px] text-slate-400 uppercase">
+                {user && clientTab === "REGISTRADO"
+                  ? "LA COTIZACIÓN SERÁ PROCESADA EXCLUSIVAMENTE POR NUESTRO DEPARTAMENTO COMERCIAL."
+                  : "EL ACCESO REGISTRADO O NUEVO PERMITE DEFINIR EL DESTINO DE ENTREGA Y FORMA DE PAGO."}
+              </p>
+            </div>
           </div>
         </div>
       )}
