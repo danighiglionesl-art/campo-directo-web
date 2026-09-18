@@ -46,7 +46,6 @@ export const ClientPortalModal: React.FC = () => {
     closePortal,
     setActiveTab,
     login,
-    loginDemo,
     loginWithGoogle,
     logout,
     updateProfile,
@@ -361,21 +360,6 @@ export const ClientPortalModal: React.FC = () => {
                       : "CONTINUAR CON GOOGLE"}
                   </span>
                 </button>
-
-                {/* Botón de Demostración Rápida 1 Clic */}
-                <div className="mt-4 pt-3 border-t border-slate-200">
-                  <p className="text-[11px] text-center text-slate-500 mb-2">
-                    ¿Querés evaluar la plataforma inmediatamente?
-                  </p>
-                  <button
-                    type="button"
-                    onClick={loginDemo}
-                    className="w-full py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                    <span>Ingresar como Cliente Demo (Agropecuaria Pérez)</span>
-                  </button>
-                </div>
               </div>
             </div>
 
