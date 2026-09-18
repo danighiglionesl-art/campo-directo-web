@@ -687,37 +687,25 @@ export const QuotationSection: React.FC = () => {
           operacion: operation === "VENDER" ? "VENTA" : "COMPRA",
           formaPago: paymentMethodSelected,
           items: cartItems.map((c) => {
-            if (c.tipo === "insumo") {
-              return {
-                tipo: "insumo",
-                nombre: c.producto.producto,
-                categoriaOVariedad: c.producto.categoria,
-                empresa: c.producto.empresa,
-                cantidad: c.cantidad,
-                unidad: c.unidad,
-                detalle: `Principio Activo: ${c.producto.principioActivo}`,
-              };
-            } else if (c.tipo === "semilla") {
-              return {
-                tipo: "semilla",
-                nombre: c.producto.variedad,
-                categoriaOVariedad: c.producto.cultivo,
-                empresa: c.producto.empresa,
-                cantidad: c.cantidad,
-                unidad: c.unidad,
-                detalle: `Tecnología: ${c.producto.tecnologia}`,
-              };
-            } else {
-              return {
-                tipo: "grano",
-                nombre: c.producto.grano,
-                categoriaOVariedad: c.producto.posicion,
-                empresa: c.producto.puerto,
-                cantidad: c.cantidad,
-                unidad: c.unidad,
-                detalle: `Puerto: ${c.producto.puerto}`,
-              };
-            }
+            const tipoNormalized: "insumo" | "semilla" | "grano" =
+              c.type === "INSUMOS"
+                ? "insumo"
+                : c.type === "SEMILLAS"
+                ? "semilla"
+                : "grano";
+
+            return {
+              tipo: tipoNormalized,
+              nombre: c.title,
+              categoriaOVariedad: c.subtitle || c.badge,
+              empresa: c.badge,
+              cantidad:
+                typeof c.quantity === "number"
+                  ? c.quantity
+                  : parseFloat(String(c.quantity)) || 1,
+              unidad: c.unit,
+              detalle: c.details,
+            };
           }),
           establecimientoDestino:
             puntosEntrega && puntosEntrega.length > 0 ? puntosEntrega[0].nombreLote : undefined,
