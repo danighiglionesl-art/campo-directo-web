@@ -18,33 +18,33 @@ import { BrandsCarouselSection } from "./BrandsCarouselSection";
 const BANNER_SLIDES = [
   {
     id: 1,
-    src: "/images/banners/banner-1.png?v=2",
+    src: "/images/banners/banner-1.png?v=3",
     alt: "Campo Directo - Sin duplicidad de impuestos",
     title: "Sin duplicidad de impuestos",
   },
   {
     id: 2,
-    src: "/images/banners/banner-2.jpg?v=2",
+    src: "/images/banners/banner-2.jpg?v=3",
     alt: "Campo Directo - Sin efecto cascada de tasas",
     title: "Sin efecto cascada de tasas",
   },
   {
     id: 3,
-    src: "/images/banners/banner-3.png?v=2",
+    src: "/images/banners/banner-3.png?v=3",
     alt: "Campo Directo - Del laboratorio a tu campo",
     title: "Del laboratorio a tu campo",
   },
   {
     id: 4,
-    src: "/images/banners/banner-4.png?v=2",
+    src: "/images/banners/banner-4.png?v=3",
     alt: "Campo Directo - Más directo, más rentable",
     title: "Más directo, más rentable",
   },
   {
     id: 5,
-    src: "/images/banners/banner-5.png?v=2",
-    alt: "Campo Directo - Ágil y rentable",
-    title: "Ágil y rentable",
+    src: "/images/banners/banner-5.png?v=3",
+    alt: "Campo Directo - Facturación directa",
+    title: "Facturación directa",
   },
 ];
 

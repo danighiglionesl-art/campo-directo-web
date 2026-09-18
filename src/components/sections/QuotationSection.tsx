@@ -61,7 +61,8 @@ import {
   COUNTRY_PHONE_CODES,
   HORARIOS_PREFERIDOS,
   formatCuit,
-  simulateAfipLookup,
+  lookupCuitAfip,
+  validateCuitModulo11,
 } from "@/data/quotationHelper";
 
 const PAGE_SIZE = 6;
@@ -202,6 +203,7 @@ export const QuotationSection: React.FC = () => {
 
   const [isAfipLoading, setIsAfipLoading] = useState<boolean>(false);
   const [afipSuccessMessage, setAfipSuccessMessage] = useState<string | null>(null);
+  const [afipErrorMessage, setAfipErrorMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const modalScrollRef = useRef<HTMLDivElement>(null);
@@ -438,23 +440,37 @@ export const QuotationSection: React.FC = () => {
     setCartItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // --- CONSULTA AUTOMÁTICA AFIP ---
+  // --- CONSULTA AUTOMÁTICA AFIP Y BCRA ---
   const handleCuitChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value.replace(/\D/g, "").slice(0, 11);
     const formatted = formatCuit(rawVal);
     setFormNuevo((prev) => ({ ...prev, cuit: formatted }));
 
+    setAfipSuccessMessage(null);
+    setAfipErrorMessage(null);
+
     if (rawVal.length === 11) {
-      setIsAfipLoading(true);
-      setAfipSuccessMessage(null);
-      const name = await simulateAfipLookup(rawVal);
-      setIsAfipLoading(false);
-      if (name) {
-        setFormNuevo((prev) => ({ ...prev, razonSocial: name.toUpperCase() }));
-        setAfipSuccessMessage(`CUIT VALIDADO EN PADRÓN AFIP: ${name.toUpperCase()}`);
+      if (!validateCuitModulo11(rawVal)) {
+        setAfipErrorMessage("CUIT INVÁLIDO: El número ingresado no coincide con el dígito verificador oficial de AFIP.");
+        return;
       }
-    } else {
-      setAfipSuccessMessage(null);
+
+      setIsAfipLoading(true);
+      try {
+        const result = await lookupCuitAfip(rawVal);
+        if (!result.valid) {
+          setAfipErrorMessage(result.error || "CUIT INVÁLIDO: No superó la validación oficial.");
+        } else if (result.razonSocial) {
+          setFormNuevo((prev) => ({ ...prev, razonSocial: result.razonSocial!.toUpperCase() }));
+          setAfipSuccessMessage(`CUIT VALIDADO (${result.tipoPersona || "CONTRIBUYENTE"}): ${result.razonSocial!.toUpperCase()}`);
+        } else {
+          setAfipSuccessMessage("CUIT VÁLIDO ANTE AFIP. Por favor confirmá o escribí la Razón Social a facturar.");
+        }
+      } catch (err) {
+        console.error("Error al consultar CUIT:", err);
+      } finally {
+        setIsAfipLoading(false);
+      }
     }
   };
 
@@ -2371,7 +2387,7 @@ export const QuotationSection: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* 9. CUIT y 10. Razón Social con AFIP */}
+                  {/* 9. CUIT y 10. Razón Social con AFIP y BCRA */}
                   <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
@@ -2382,7 +2398,7 @@ export const QuotationSection: React.FC = () => {
                           {isAfipLoading && (
                             <span className="inline-flex items-center text-[10px] text-campo-green font-bold gap-1">
                               <Loader2 className="w-3 h-3 animate-spin" />
-                              CONSULTANDO AFIP...
+                              VALIDANDO AFIP / BCRA...
                             </span>
                           )}
                         </div>
@@ -2392,18 +2408,24 @@ export const QuotationSection: React.FC = () => {
                           placeholder="XX-XXXXXXXX-X"
                           value={formNuevo.cuit}
                           onChange={handleCuitChange}
-                          className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold focus:border-campo-green focus:outline-none bg-white"
+                          className={`w-full uppercase py-2 px-3 rounded-lg border text-xs font-semibold focus:outline-none transition-colors ${
+                            afipErrorMessage
+                              ? "border-red-400 bg-red-50/20 text-red-900 focus:border-red-500"
+                              : afipSuccessMessage
+                              ? "border-campo-green bg-campo-green-50/20 text-slate-900 focus:border-campo-green"
+                              : "border-slate-300 focus:border-campo-green bg-white"
+                          }`}
                         />
                       </div>
 
                       <div>
                         <label className="block text-[11px] font-black uppercase text-slate-700 mb-1">
-                          NOMBRE O RAZÓN SOCIAL (BÚSQUEDA AFIP) *
+                          NOMBRE O RAZÓN SOCIAL A FACTURAR *
                         </label>
                         <input
                           type="text"
                           required
-                          placeholder="RAZÓN SOCIAL / TITULAR"
+                          placeholder="RAZÓN SOCIAL / TITULAR A FACTURAR"
                           value={formNuevo.razonSocial}
                           onChange={(e) =>
                             setFormNuevo((prev) => ({
@@ -2418,8 +2440,15 @@ export const QuotationSection: React.FC = () => {
 
                     {afipSuccessMessage && (
                       <p className="mt-2 text-[10px] font-bold text-campo-green flex items-center gap-1.5 break-words">
-                        <Check className="w-3 h-3 shrink-0" />
+                        <Check className="w-3.5 h-3.5 shrink-0 stroke-[3]" />
                         <span className="flex-1 break-words">{afipSuccessMessage}</span>
+                      </p>
+                    )}
+
+                    {afipErrorMessage && (
+                      <p className="mt-2 text-[10px] font-bold text-red-600 flex items-center gap-1.5 break-words">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span className="flex-1 break-words">{afipErrorMessage}</span>
                       </p>
                     )}
                   </div>

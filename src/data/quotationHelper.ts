@@ -267,34 +267,73 @@ export function formatCuit(value: string): string {
   return `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10, 11)}`;
 }
 
-// Known or sample AFIP names for quick instant mock lookup
-const KNOWN_AFIP_ENTITIES: Record<string, string> = {
-  "30712345678": "AGROPECUARIA EL TRÉBOL S.A.",
-  "30708523691": "DON MANUEL CAMPOS Y HACIENDA S.R.L.",
-  "20334455667": "GONZÁLEZ MARIANO ALBERTO",
-  "30654321987": "ESTABLECIMIENTO LA ESPERANZA S.A.",
-  "30716584932": "CEREALERA PAMPEANA S.A.",
-  "20289456123": "ROSSI CARLOS EDUARDO",
-};
+// Algoritmo oficial de AFIP: Validación matemática de CUIT por Módulo 11
+export function validateCuitModulo11(cuit: string): boolean {
+  const clean = String(cuit).replace(/\D/g, "");
+  if (clean.length !== 11) return false;
 
-export function simulateAfipLookup(cuit: string): Promise<string | null> {
-  const clean = cuit.replace(/\D/g, "");
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      if (clean.length === 11) {
-        if (KNOWN_AFIP_ENTITIES[clean]) {
-          resolve(KNOWN_AFIP_ENTITIES[clean]);
-        } else {
-          // If valid length but not in sample table, generate a plausible company/producer name based on prefix
-          if (clean.startsWith("30") || clean.startsWith("33")) {
-            resolve(`AGROEMPRESA REGISTRADA S.A. (CUIT ${clean})`);
-          } else {
-            resolve(`PRODUCTOR AGROPECUARIO REGISTRADO (CUIT ${clean})`);
-          }
-        }
-      } else {
-        resolve(null);
-      }
-    }, 350);
-  });
+  const validPrefixes = ["20", "23", "24", "27", "30", "33", "34"];
+  const prefix = clean.slice(0, 2);
+  if (!validPrefixes.includes(prefix)) return false;
+
+  const multipliers = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  let sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(clean[i], 10) * multipliers[i];
+  }
+
+  const mod = sum % 11;
+  let checkDigit = 11 - mod;
+  if (checkDigit === 11) checkDigit = 0;
+  if (checkDigit === 10) checkDigit = 9;
+
+  return checkDigit === parseInt(clean[10], 10);
+}
+
+export interface CuitLookupResult {
+  valid: boolean;
+  razonSocial: string | null;
+  tipoPersona?: string;
+  error?: string;
+  message?: string;
+  source?: string;
+}
+
+// Consulta en vivo a la API oficial de CUIT / BCRA / AFIP
+export async function lookupCuitAfip(cuit: string): Promise<CuitLookupResult> {
+  const clean = String(cuit).replace(/\D/g, "");
+  if (clean.length !== 11) {
+    return { valid: false, razonSocial: null, error: "El CUIT debe tener 11 dígitos numéricos." };
+  }
+
+  if (!validateCuitModulo11(clean)) {
+    return {
+      valid: false,
+      razonSocial: null,
+      error: "CUIT inválido: no coincide con el dígito verificador oficial de AFIP.",
+    };
+  }
+
+  try {
+    const res = await fetch(`/api/cuit/${clean}`);
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (err) {
+    console.warn("Error consultando API de CUIT:", err);
+  }
+
+  return {
+    valid: true,
+    razonSocial: null,
+    message: "CUIT válido ante AFIP. Por favor confirmá tu Razón Social o Nombre a facturar.",
+    source: "AFIP_MODULO_11",
+  };
+}
+
+// Función retrocompatible
+export async function simulateAfipLookup(cuit: string): Promise<string | null> {
+  const result = await lookupCuitAfip(cuit);
+  return result.valid ? result.razonSocial : null;
 }
