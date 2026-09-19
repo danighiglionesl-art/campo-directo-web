@@ -196,7 +196,7 @@ export const QuotationSection: React.FC = () => {
     whatsappNumber: "",
     email: "",
     provincia: "BUENOS AIRES",
-    localidad: "PERGAMINO",
+    localidad: "",
     codigoPostal: "",
     cuit: "",
     razonSocial: "",
@@ -205,6 +205,9 @@ export const QuotationSection: React.FC = () => {
     usuario: "",
     password: "",
   });
+
+  // Estado para localidad manual o desplegable
+  const [isCustomLocalidad, setIsCustomLocalidad] = useState<boolean>(false);
 
   // Indicador de razón social auto-generada desde AFIP/BCRA o Apellidos y Nombres
   const [isRazonSocialAuto, setIsRazonSocialAuto] = useState<boolean>(false);
@@ -552,15 +555,20 @@ export const QuotationSection: React.FC = () => {
             setIsRazonSocialAuto(true);
             setAfipSuccessMessage(`CUIT VALIDADO (${result.tipoPersona || "CONTRIBUYENTE"}): ${result.razonSocial!.toUpperCase()}`);
           } else {
-            // Proceso automático: persona física o contribuyente sin registro societario previo
-            // Su denominación legal ante AFIP es automáticamente su Apellido y Nombre
+            // Para persona física o contribuyente sin registro societario previo:
+            // La denominación legal ante AFIP es su Apellido y Nombre
             const nombreCompleto = `${formNuevo.apellidos.trim()} ${formNuevo.nombres.trim()}`.trim();
-            const autoRazon = nombreCompleto || (result.isPersonaFisica ? `PRODUCTOR CUIT ${formatted}` : `EMPRESA CUIT ${formatted}`);
-            setFormNuevo((prev) => ({ ...prev, razonSocial: autoRazon.toUpperCase() }));
-            setIsRazonSocialAuto(true);
-            setAfipSuccessMessage(
-              `CUIT VALIDADO ANTE AFIP (${result.tipoPersona || "PRODUCTOR"}): ${autoRazon.toUpperCase()}`
-            );
+            if (nombreCompleto) {
+              setFormNuevo((prev) => ({ ...prev, razonSocial: nombreCompleto.toUpperCase() }));
+              setIsRazonSocialAuto(true);
+              setAfipSuccessMessage(`CUIT VALIDADO ANTE AFIP (${result.tipoPersona || "CONTRIBUYENTE"}): ${nombreCompleto.toUpperCase()}`);
+            } else {
+              setFormNuevo((prev) => ({ ...prev, razonSocial: "" }));
+              setIsRazonSocialAuto(true);
+              setAfipSuccessMessage(
+                `CUIT VÁLIDO ANTE AFIP (${result.tipoPersona || "CONTRIBUYENTE"}). Se completará automáticamente con tu Apellido y Nombre.`
+              );
+            }
           }
         }
       } catch (err) {
@@ -786,7 +794,7 @@ export const QuotationSection: React.FC = () => {
     const autoResolvedRazonSocial =
       formNuevo.razonSocial.trim() ||
       `${formNuevo.apellidos.trim()} ${formNuevo.nombres.trim()}`.trim() ||
-      `PRODUCTOR CUIT ${formNuevo.cuit}`;
+      formNuevo.cuit;
 
     if (!formNuevo.password.trim()) {
       setFormError("POR FAVOR DEFINÍ UNA CONTRASEÑA PARA TU CUENTA");
@@ -2834,11 +2842,11 @@ export const QuotationSection: React.FC = () => {
                           value={formNuevo.provincia}
                           onChange={(e) => {
                             const newProv = e.target.value.toUpperCase();
-                            const defaultLoc = LOCALITIES_BY_PROVINCE[newProv]?.[0] || "";
+                            setIsCustomLocalidad(false);
                             setFormNuevo((prev) => ({
                               ...prev,
                               provincia: newProv,
-                              localidad: defaultLoc,
+                              localidad: "",
                             }));
                           }}
                           className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold bg-white focus:outline-none focus:border-campo-green cursor-pointer"
@@ -2853,27 +2861,31 @@ export const QuotationSection: React.FC = () => {
 
                       <div className="sm:col-span-4">
                         <label className="block text-[11px] font-black uppercase text-slate-700 mb-1">
-                          LOCALIDAD *
+                          LOCALIDAD (DESPLEGABLE) *
                         </label>
-                        <input
-                          type="text"
+                        <select
                           required
-                          list="localidades-provincia"
-                          placeholder="ESCRIBÍ O ELEGÍ TU LOCALIDAD"
-                          value={formNuevo.localidad}
-                          onChange={(e) =>
-                            setFormNuevo((prev) => ({
-                              ...prev,
-                              localidad: e.target.value.toUpperCase(),
-                            }))
-                          }
-                          className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold bg-white focus:outline-none focus:border-campo-green"
-                        />
-                        <datalist id="localidades-provincia">
+                          value={isCustomLocalidad ? "OTRA" : formNuevo.localidad}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "OTRA") {
+                              setIsCustomLocalidad(true);
+                              setFormNuevo((prev) => ({ ...prev, localidad: "" }));
+                            } else {
+                              setIsCustomLocalidad(false);
+                              setFormNuevo((prev) => ({ ...prev, localidad: val }));
+                            }
+                          }}
+                          className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold bg-white focus:outline-none focus:border-campo-green cursor-pointer"
+                        >
+                          <option value="">-- SELECCIONÁ TU LOCALIDAD ({currentLocalities.length}) --</option>
                           {currentLocalities.map((loc) => (
-                            <option key={loc} value={loc} />
+                            <option key={loc} value={loc}>
+                              {loc}
+                            </option>
                           ))}
-                        </datalist>
+                          <option value="OTRA">OTRA LOCALIDAD (ESCRIBIR MANUALMENTE)</option>
+                        </select>
                       </div>
 
                       <div className="sm:col-span-3">
@@ -2894,6 +2906,27 @@ export const QuotationSection: React.FC = () => {
                           className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold bg-white focus:outline-none focus:border-campo-green"
                         />
                       </div>
+
+                      {isCustomLocalidad && (
+                        <div className="sm:col-span-12">
+                          <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">
+                            ESCRIBÍ TU LOCALIDAD, PARAJE O COLONIA *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="ESCRIBÍ EL NOMBRE DE TU LOCALIDAD"
+                            value={formNuevo.localidad}
+                            onChange={(e) =>
+                              setFormNuevo((prev) => ({
+                                ...prev,
+                                localidad: e.target.value.toUpperCase(),
+                              }))
+                            }
+                            className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold bg-white focus:outline-none focus:border-campo-green"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -2926,6 +2959,17 @@ export const QuotationSection: React.FC = () => {
                               : "border-slate-300 focus:border-campo-green bg-white"
                           }`}
                         />
+                        <div className="mt-1.5 flex items-center justify-between">
+                          <a
+                            href="https://seti.afip.gob.ar/padron-puc-constancia-internet/ConsultaConstanciaAction.do"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-campo-green hover:underline"
+                          >
+                            <span>Consultar Constancia Oficial en AFIP (ARCA)</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
                       </div>
 
                       <div>
@@ -2942,7 +2986,7 @@ export const QuotationSection: React.FC = () => {
                         <input
                           type="text"
                           required
-                          placeholder="RAZÓN SOCIAL / TITULAR A FACTURAR"
+                          placeholder="APELLIDO Y NOMBRE O RAZÓN SOCIAL A FACTURAR"
                           value={formNuevo.razonSocial}
                           onChange={(e) => {
                             setIsRazonSocialAuto(false);

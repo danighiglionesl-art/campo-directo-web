@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import Image from "next/image";
 import {
   Download,
@@ -48,6 +49,7 @@ const trackPwaAnalytics = (
 };
 
 export const PwaInstallPrompt: React.FC = () => {
+  const pathname = usePathname();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isIos, setIsIos] = useState(false);
@@ -120,8 +122,14 @@ export const PwaInstallPrompt: React.FC = () => {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       const promptEvent = e as BeforeInstallPromptEvent;
+      (window as any).__cd_deferred_prompt = promptEvent;
+      window.dispatchEvent(
+        new CustomEvent("cd_beforeinstallprompt", { detail: promptEvent })
+      );
       setDeferredPrompt(promptEvent);
-      setShowPrompt(true);
+      if (pathname !== "/instalar") {
+        setShowPrompt(true);
+      }
       trackPwaAnalytics("pwa_prompt_displayed", {
         platform: "chromium",
         platforms: promptEvent.platforms,
@@ -203,8 +211,8 @@ export const PwaInstallPrompt: React.FC = () => {
     trackPwaAnalytics("pwa_prompt_dismissed_user");
   };
 
-  // No renderizar si ya está instalada o no hay prompt activo
-  if (isStandalone || (!showPrompt && !installedSuccess)) {
+  // No renderizar si estamos en /instalar, si ya está instalada o no hay prompt activo
+  if (pathname === "/instalar" || isStandalone || (!showPrompt && !installedSuccess)) {
     return null;
   }
 

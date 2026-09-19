@@ -1,9 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
-import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+import { AppShell } from "@/components/layout/AppShell";
 import { ClientProviders } from "@/components/providers/ClientProviders";
 import { siteConfig } from "@/data/siteConfig";
 
@@ -94,10 +92,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen flex flex-col antialiased bg-slate-50 text-slate-900">
         <ClientProviders>
-          <Header />
-          <main className="flex-grow pt-20 sm:pt-24">{children}</main>
-          <Footer />
-          <WhatsAppButton variant="floating" />
+          <AppShell>{children}</AppShell>
         </ClientProviders>
         <Script
           id="google-gsi-client"
