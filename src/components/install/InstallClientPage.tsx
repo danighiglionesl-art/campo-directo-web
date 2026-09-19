@@ -60,15 +60,19 @@ export const InstallClientPage: React.FC = () => {
     const ua = window.navigator.userAgent || "";
     const uaLower = ua.toLowerCase();
 
-    // 1. Verificación Standalone / Ya instalada
+    // 1. Verificación Standalone (App ejecutándose dentro de su propia ventana independiente)
     const checkIsStandalone = () => {
       return (
         window.matchMedia("(display-mode: standalone)").matches ||
         (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
-        document.referrer.includes("android-app://") ||
-        localStorage.getItem("cd_pwa_installed") === "true"
+        document.referrer.includes("android-app://")
       );
     };
+
+    // Limpiar flag estático de localStorage para permitir reinstalaciones si el usuario desinstaló la app
+    try {
+      localStorage.removeItem("cd_pwa_installed");
+    } catch {}
 
     const standaloneMode = checkIsStandalone();
     setIsStandalone(standaloneMode);
@@ -131,19 +135,20 @@ export const InstallClientPage: React.FC = () => {
       const promptEvent = e as BeforeInstallPromptEvent;
       (window as unknown as { __cd_deferred_prompt?: BeforeInstallPromptEvent }).__cd_deferred_prompt = promptEvent;
       setDeferredPrompt(promptEvent);
+      setIsStandalone(false);
     };
 
     const handleCustomPromptEvent = (e: Event) => {
       const customEvent = e as CustomEvent<BeforeInstallPromptEvent>;
       if (customEvent.detail) {
         setDeferredPrompt(customEvent.detail);
+        setIsStandalone(false);
       }
     };
 
     // 6. Detección de instalación completada
     const handleAppInstalled = () => {
       setInstalledSuccess(true);
-      localStorage.setItem("cd_pwa_installed", "true");
       trackInstallAnalytics("install_confirmed", {
         platform: iosDevice ? "ios" : androidDevice ? "android" : "desktop",
       });
@@ -300,6 +305,19 @@ export const InstallClientPage: React.FC = () => {
                 <span>Ir a Campo Directo</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
+
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    localStorage.removeItem("cd_pwa_installed");
+                  } catch {}
+                  setIsStandalone(false);
+                }}
+                className="mt-4 text-xs font-semibold text-slate-500 hover:text-campo-green transition-colors underline underline-offset-2"
+              >
+                ¿Querés volver a instalarlo o no encontrás el acceso? Tocá acá
+              </button>
             </div>
           )}
 

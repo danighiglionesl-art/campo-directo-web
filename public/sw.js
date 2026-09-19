@@ -1,5 +1,5 @@
 // Service Worker Oficial de Campo Directo PWA
-const CACHE_NAME = "campo-directo-v2";
+const CACHE_NAME = "campo-directo-v3";
 const OFFLINE_URL = "/offline";
 
 // Recursos estáticos iniciales a precachear
@@ -53,8 +53,12 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 2. Network-Only para endpoints de API y autenticación (nunca cachear cotizaciones ni CUIT)
-  if (url.pathname.startsWith("/api/") || url.hostname.includes("accounts.google.com")) {
+  // 2. Network-Only para API, autenticación y Panel de Control (nunca cachear por PWA)
+  if (
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/panel") ||
+    url.hostname.includes("accounts.google.com")
+  ) {
     return;
   }
 

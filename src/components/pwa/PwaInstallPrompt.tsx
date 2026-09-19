@@ -79,16 +79,9 @@ export const PwaInstallPrompt: React.FC = () => {
       return; // No mostrar nada si ya está en standalone
     }
 
-    // 2. Verificar si el usuario ya instaló o pospuso el aviso recientemente
-    const isAlreadyInstalled = localStorage.getItem("cd_pwa_installed") === "true";
-    if (isAlreadyInstalled) {
-      return;
-    }
-
+    // 2. Verificar si el usuario pospuso el banner emergente en la web principal
     const dismissedUntil = localStorage.getItem("cd_pwa_dismissed_until");
-    if (dismissedUntil && Date.now() < parseInt(dismissedUntil, 10)) {
-      return;
-    }
+    const isDismissed = dismissedUntil && Date.now() < parseInt(dismissedUntil, 10);
 
     // 3. Detección de Plataforma y Navegadores In-App (Instagram, Facebook, etc.)
     const ua = window.navigator.userAgent.toLowerCase();
@@ -100,8 +93,8 @@ export const PwaInstallPrompt: React.FC = () => {
     setIsIos(isIosDevice);
     setIsInAppBrowser(inApp);
 
-    // Si está navegando dentro del navegador integrado de Instagram o redes sociales
-    if (inApp) {
+    // Si está navegando dentro del navegador integrado de redes sociales en la web principal
+    if (inApp && !isDismissed && pathname !== "/instalar") {
       const timer = setTimeout(() => {
         setShowPrompt(true);
         trackPwaAnalytics("pwa_prompt_displayed", { platform: "in-app-browser" });
@@ -109,8 +102,8 @@ export const PwaInstallPrompt: React.FC = () => {
       return () => clearTimeout(timer);
     }
 
-    // Si es iOS Safari convencional (no in-app)
-    if (isIosDevice) {
+    // Si es iOS Safari convencional (no in-app) en la web principal
+    if (isIosDevice && !isDismissed && pathname !== "/instalar") {
       const timer = setTimeout(() => {
         setShowPrompt(true);
         trackPwaAnalytics("pwa_prompt_displayed", { platform: "ios-safari" });
@@ -123,11 +116,14 @@ export const PwaInstallPrompt: React.FC = () => {
       e.preventDefault();
       const promptEvent = e as BeforeInstallPromptEvent;
       (window as any).__cd_deferred_prompt = promptEvent;
+      try {
+        localStorage.removeItem("cd_pwa_installed");
+      } catch {}
       window.dispatchEvent(
         new CustomEvent("cd_beforeinstallprompt", { detail: promptEvent })
       );
       setDeferredPrompt(promptEvent);
-      if (pathname !== "/instalar") {
+      if (pathname !== "/instalar" && !isDismissed) {
         setShowPrompt(true);
       }
       trackPwaAnalytics("pwa_prompt_displayed", {
