@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Menu, X, ArrowRight, Calculator, User } from "lucide-react";
+import { Menu, X, ArrowRight, Calculator, User, Building2 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { siteConfig } from "@/data/siteConfig";
 import { useClientAuth } from "@/context/ClientAuthContext";
@@ -88,7 +88,17 @@ export const Header: React.FC = () => {
               )}
             </button>
 
-            {/* 3. Contactanos */}
+            {/* 3. Acceso a Fábrica */}
+            <Link
+              href="/panel"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs lg:text-sm font-semibold text-slate-700 hover:text-campo-green bg-slate-100 hover:bg-slate-200/80 active:bg-slate-300 transition-all duration-200 rounded-full border border-slate-200/80 focus:outline-none focus:ring-2 focus:ring-campo-green shadow-2xs hover:shadow-xs"
+              title="Acceso al Panel para Fábricas y Empresas Aliadas"
+            >
+              <Building2 className="w-4 h-4 text-campo-green shrink-0" />
+              <span>Acceso a Fábrica</span>
+            </Link>
+
+            {/* 4. Contactanos */}
             <Link
               href={siteConfig.ctaNav.href}
               className="inline-flex items-center justify-center px-4 py-2 text-xs lg:text-sm font-semibold text-white bg-campo-green hover:bg-campo-green-600 active:bg-campo-green-700 transition-all duration-200 rounded-full shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-campo-green focus:ring-offset-2"
@@ -156,6 +166,15 @@ export const Header: React.FC = () => {
                     : siteConfig.clientPortal.label}
                 </span>
               </button>
+
+              <Link
+                href="/panel"
+                onClick={handleNavClick}
+                className="w-full flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              >
+                <Building2 className="w-4 h-4 text-campo-green" />
+                <span>Acceso a Fábrica</span>
+              </Link>
 
               <Link
                 href={siteConfig.ctaNav.href}

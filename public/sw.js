@@ -1,5 +1,5 @@
 // Service Worker Oficial de Campo Directo PWA
-const CACHE_NAME = "campo-directo-v3";
+const CACHE_NAME = "campo-directo-v5";
 const OFFLINE_URL = "/offline";
 
 // Recursos estáticos iniciales a precachear

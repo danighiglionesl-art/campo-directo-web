@@ -30,21 +30,39 @@ export const AdminQuotationsReceivedTab: React.FC<{
     deleteQuotationReceived,
     exportQuotationsReceivedExcel,
     searchQuery,
+    deriveQuotationToFactory,
+    factories,
   } = useAdmin();
 
   const [localSearch, setLocalSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("TODOS");
   const [operationFilter, setOperationFilter] = useState<string>("TODAS");
+  const [empresaFilter, setEmpresaFilter] = useState<string>("TODAS");
   const [selectedQuote, setSelectedQuote] = useState<AdminQuotationReceived | null>(null);
 
+  // Derivación a Fábrica
+  const [derivingQuote, setDerivingQuote] = useState<AdminQuotationReceived | null>(null);
+  const [deriveTargetEmpresa, setDeriveTargetEmpresa] = useState<string>("");
+  const [deriveNotes, setDeriveNotes] = useState<string>("");
+  const [deriveSuccessMsg, setDeriveSuccessMsg] = useState<string>("");
+
   const queryEffective = (localSearch || searchQuery).toLowerCase().trim();
+
+  // Lista de empresas detectadas en las cotizaciones
+  const availableEmpresas = useMemo(() => {
+    const fromQuotes = quotationsReceived
+      .flatMap((q) => q.items?.map((i) => i.empresa) || [])
+      .filter(Boolean);
+    const fromFactories = factories.map((f) => f.empresa);
+    return Array.from(new Set([...fromQuotes, ...fromFactories])).sort();
+  }, [quotationsReceived, factories]);
 
   const filteredQuotes = useMemo(() => {
     return quotationsReceived.filter((q) => {
       // Filtro texto
       if (queryEffective) {
         const text = `${q.numero} ${q.clienteNombre} ${q.clienteCuit} ${q.establecimientoDestino} ${q.formaPagoSolicitada}`.toLowerCase();
-        const itemsText = q.items?.map((i) => `${i.nombre} ${i.categoriaOVariedad}`).join(" ").toLowerCase() || "";
+        const itemsText = q.items?.map((i) => `${i.nombre} ${i.categoriaOVariedad} ${i.empresa || ""}`).join(" ").toLowerCase() || "";
         if (!text.includes(queryEffective) && !itemsText.includes(queryEffective)) {
           return false;
         }
@@ -60,9 +78,17 @@ export const AdminQuotationsReceivedTab: React.FC<{
         return false;
       }
 
+      // Filtro empresa
+      if (empresaFilter !== "TODAS") {
+        const matchesEmpresa = q.items?.some(
+          (it) => (it.empresa || "").toUpperCase() === empresaFilter.toUpperCase()
+        );
+        if (!matchesEmpresa) return false;
+      }
+
       return true;
     });
-  }, [quotationsReceived, queryEffective, statusFilter, operationFilter]);
+  }, [quotationsReceived, queryEffective, statusFilter, operationFilter, empresaFilter]);
 
   const handleStatusChange = (
     id: string,
@@ -153,6 +179,21 @@ export const AdminQuotationsReceivedTab: React.FC<{
             <option value="TODAS">Todas las Operaciones</option>
             <option value="COMPRA">COMPRA (Productor Compra)</option>
             <option value="VENTA">VENTA (Productor Vende)</option>
+          </select>
+
+          {/* Filtro Empresa */}
+          <select
+            value={empresaFilter}
+            onChange={(e) => setEmpresaFilter(e.target.value)}
+            className="p-2 text-xs rounded-lg border border-slate-200 bg-slate-50 font-medium text-slate-700 max-w-[180px]"
+            title="Filtrar pedidos por empresa proveedora de insumos/semillas"
+          >
+            <option value="TODAS">Todas las Empresas</option>
+            {availableEmpresas.map((emp) => (
+              <option key={emp} value={emp}>
+                {emp}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -265,12 +306,29 @@ export const AdminQuotationsReceivedTab: React.FC<{
 
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {/* Botón Derivar a Fábrica (Paso intermedio Campo Directo) */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDerivingQuote(q);
+                            const suggestedEmpresa = q.items?.[0]?.empresa || factories[0]?.empresa || "ADAMA";
+                            setDeriveTargetEmpresa(suggestedEmpresa);
+                            setDeriveNotes("");
+                            setDeriveSuccessMsg("");
+                          }}
+                          title="Derivar al Panel de la Fábrica (paso intermedio Campo Directo)"
+                          className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-semibold text-[11px] flex items-center gap-1 shadow-xs cursor-pointer"
+                        >
+                          <Building2 className="w-3 h-3" />
+                          <span className="hidden md:inline">A Fábrica</span>
+                        </button>
+
                         {/* Botón Responder con Propuesta */}
                         {onAnswerWithProposal && (
                           <button
                             type="button"
                             onClick={() => onAnswerWithProposal(q)}
-                            title="Responder y Cotizar Oficialmente"
+                            title="Responder y Cotizar Oficialmente al Cliente"
                             className="px-2.5 py-1 rounded-lg bg-campo-green-600 hover:bg-campo-green-500 text-white font-semibold text-[11px] flex items-center gap-1 shadow-sm"
                           >
                             <Send className="w-3 h-3" />
@@ -498,6 +556,180 @@ export const AdminQuotationsReceivedTab: React.FC<{
                   Cerrar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Derivación Intermedia a Fábrica */}
+      {derivingQuote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">
+                    Derivar Cotización {derivingQuote.numero} a Fábrica
+                  </h3>
+                  <p className="text-xs text-slate-300">
+                    Paso intermedio Campo Directo: el pedido será enviado al panel de la empresa proveedora.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDerivingQuote(null)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Contenido */}
+            <div className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+              {deriveSuccessMsg ? (
+                <div className="py-8 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-7 h-7" />
+                  </div>
+                  <h4 className="text-base font-bold text-slate-900">{deriveSuccessMsg}</h4>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    La fábrica ya tiene disponible este requerimiento en su sección <strong>Cotizaciones Recibidas</strong> junto a la ubicación de entrega para cotizar.
+                  </p>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setDerivingQuote(null)}
+                      className="px-5 py-2 rounded-xl bg-campo-green-600 text-white font-semibold text-xs"
+                    >
+                      Entendido
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!deriveTargetEmpresa) {
+                      return alert("Por favor seleccioná la fábrica proveedora.");
+                    }
+                    deriveQuotationToFactory(
+                      derivingQuote.id,
+                      deriveTargetEmpresa,
+                      deriveNotes
+                    );
+                    setDeriveSuccessMsg(
+                      `¡Cotización enviada exitosamente al panel de ${deriveTargetEmpresa}!`
+                    );
+                  }}
+                  className="space-y-4"
+                >
+                  {/* Selector de Fábrica Destino */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                      Empresa / Fábrica Destino *
+                    </label>
+                    <select
+                      required
+                      value={deriveTargetEmpresa}
+                      onChange={(e) => setDeriveTargetEmpresa(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-sm bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green-500"
+                    >
+                      <option value="">-- Seleccionar Fábrica Aliada --</option>
+                      {factories.map((f) => (
+                        <option key={f.id} value={f.empresa}>
+                          {f.empresa} ({f.razonSocial})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Detalle de Productos a Cotizar */}
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                    <span className="font-bold text-slate-700 uppercase tracking-wider block mb-2">
+                      Productos Solicitados por el Cliente:
+                    </span>
+                    <div className="space-y-1.5">
+                      {derivingQuote.items?.map((it, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-200"
+                        >
+                          <div>
+                            <span className="font-bold text-slate-900">{it.nombre}</span>
+                            <span className="text-slate-500 ml-2">({it.categoriaOVariedad})</span>
+                          </div>
+                          <span className="font-bold text-campo-green-700 font-mono">
+                            {it.cantidad} {it.unidad}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Lugar de Entrega Georreferenciado */}
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      <MapPin className="w-4 h-4 text-rose-500" />
+                      <span>Lugar de Entrega para la Fábrica:</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-slate-700">
+                      <div>
+                        <span className="text-slate-400 block">Establecimiento:</span>
+                        <strong className="text-slate-900">
+                          {derivingQuote.establecimientoDestino || "Establecimiento Principal"}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Forma de Pago Requerida:</span>
+                        <strong className="text-slate-900">{derivingQuote.formaPagoSolicitada}</strong>
+                      </div>
+                      {derivingQuote.coordenadasGps && (
+                        <div className="col-span-2">
+                          <span className="text-slate-400 block">Coordenadas GPS:</span>
+                          <span className="font-mono">{derivingQuote.coordenadasGps}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Instrucciones internas Campo Directo */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Instrucciones o Condiciones para la Fábrica (Opcional):
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={deriveNotes}
+                      onChange={(e) => setDeriveNotes(e.target.value)}
+                      placeholder="Ej: Cliente con pago contado contra entrega. Bonificar flete a Pergamino."
+                      className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-campo-green-500"
+                    />
+                  </div>
+
+                  {/* Footer modal */}
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDerivingQuote(null)}
+                      className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-2 shadow-md transition-colors cursor-pointer"
+                    >
+                      <Building2 className="w-4 h-4" />
+                      <span>Enviar al Panel de {deriveTargetEmpresa || "la Fábrica"}</span>
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         </div>

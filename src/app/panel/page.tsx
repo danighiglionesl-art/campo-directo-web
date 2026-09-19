@@ -10,6 +10,8 @@ import { AdminQuotationsReceivedTab } from "@/components/panel/AdminQuotationsRe
 import { AdminQuotationsSentTab } from "@/components/panel/AdminQuotationsSentTab";
 import { AdminEstablishmentsTab } from "@/components/panel/AdminEstablishmentsTab";
 import { AdminPaymentMethodsTab } from "@/components/panel/AdminPaymentMethodsTab";
+import { AdminFactoriesTab } from "@/components/panel/AdminFactoriesTab";
+import { FactoryDashboardView } from "@/components/panel/factory/FactoryDashboardView";
 import { AdminQuotationReceived } from "@/types/admin";
 
 function AdminPanelContent() {
@@ -23,6 +25,11 @@ function AdminPanelContent() {
   // Si no está autenticado, renderizar la pantalla de Login
   if (!session.isAuthenticated) {
     return <AdminLoginView />;
+  }
+
+  // Si el usuario autenticado tiene rol de Fábrica, renderizar directamente su Panel de Fábrica
+  if (session.role === "fabrica") {
+    return <FactoryDashboardView />;
   }
 
   const handleAnswerWithProposal = (quote: AdminQuotationReceived) => {
@@ -82,6 +89,8 @@ function AdminPanelContent() {
         {activeTab === "establecimientos" && <AdminEstablishmentsTab />}
 
         {activeTab === "formas-pago" && <AdminPaymentMethodsTab />}
+
+        {activeTab === "fabricas" && <AdminFactoriesTab />}
       </main>
 
       {/* Footer administrativo sobrio */}

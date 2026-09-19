@@ -64,6 +64,14 @@ export const Footer: React.FC = () => {
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link
+                  href="/panel"
+                  className="text-sm font-medium text-emerald-700 hover:text-campo-green transition-colors flex items-center gap-1.5"
+                >
+                  <span>Acceso a Fábrica</span>
+                </Link>
+              </li>
             </ul>
           </div>
 

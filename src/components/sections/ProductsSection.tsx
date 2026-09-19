@@ -1,24 +1,104 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { MessageCircle, Send, Package, Filter, Check, X } from "lucide-react";
+import { MessageCircle, Send, Package, Filter, Check, X, Building2, Sparkles, Tag } from "lucide-react";
 import { initialProducts, productCategories } from "@/data/products";
+import { initialFactoryProducts } from "@/data/factoryData";
 import { ProductItem } from "@/types";
+import { FactoryProduct } from "@/types/admin";
 import { getWhatsAppLink } from "@/data/siteConfig";
+
+export interface DisplayProduct {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  presentation?: string;
+  imageUrl?: string;
+  empresa?: string;
+  rubro?: "Semillas" | "Insumos";
+  principioActivo?: string;
+  cultivos?: string[];
+  activoEnPortal?: boolean;
+}
 
 export const ProductsSection: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("Todas");
-  const [inquiryModalProduct, setInquiryModalProduct] = useState<ProductItem | null>(null);
+  const [inquiryModalProduct, setInquiryModalProduct] = useState<DisplayProduct | null>(null);
   const [inquirySubmitted, setInquirySubmitted] = useState(false);
+  const [allProducts, setAllProducts] = useState<DisplayProduct[]>([]);
+
+  // Sincronización en tiempo real con el ABM de Productos de las Fábricas
+  useEffect(() => {
+    const loadProducts = () => {
+      let factoryList: FactoryProduct[] = initialFactoryProducts;
+      try {
+        const stored = localStorage.getItem("cd_factory_products");
+        if (stored) {
+          factoryList = JSON.parse(stored);
+        }
+      } catch (e) {
+        console.error("Error reading factory products from localStorage", e);
+      }
+
+      // Filtrar sólo productos activos en el portal
+      const activeFactoryProducts: DisplayProduct[] = factoryList
+        .filter((fp) => fp.activoEnPortal !== false)
+        .map((fp) => ({
+          id: fp.id,
+          name: fp.nombre,
+          category: fp.categoria ? fp.categoria.toUpperCase() : (fp.rubro === "Semillas" ? "SEMILLAS" : "INSUMOS"),
+          description: fp.descripcion || `Producto formulado y garantizado por ${fp.empresa}.`,
+          presentation: fp.presentacion || (fp.rubro === "Semillas" ? "Bolsas / Big Bag" : "Bidones / Granel"),
+          imageUrl: fp.imagenUrl || "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&w=600&q=80",
+          empresa: fp.empresa,
+          rubro: fp.rubro,
+          principioActivo: fp.principioActivo,
+          cultivos: fp.cultivos,
+          activoEnPortal: fp.activoEnPortal,
+        }));
+
+      // Convertir initialProducts estándar a DisplayProduct
+      const baseProducts: DisplayProduct[] = initialProducts.map((p) => ({
+        ...p,
+        category: p.category.toUpperCase(),
+      }));
+
+      // Unir catálogo base y productos de fábrica
+      setAllProducts([...baseProducts, ...activeFactoryProducts]);
+    };
+
+    loadProducts();
+
+    // Escuchar cambios de storage entre pestañas o actualizaciones del panel
+    window.addEventListener("storage", loadProducts);
+    return () => window.removeEventListener("storage", loadProducts);
+  }, []);
+
+  // Lista dinámica de categorías basadas en productos activos
+  const categoriesList = useMemo(() => {
+    const set = new Set<string>();
+    set.add("TODAS");
+    allProducts.forEach((p) => {
+      if (p.category) {
+        set.add(p.category.trim().toUpperCase());
+      }
+    });
+    return Array.from(set);
+  }, [allProducts]);
 
   // Filtrado de productos por categoría
-  const filteredProducts =
-    selectedCategory === "Todas"
-      ? initialProducts
-      : initialProducts.filter((p) => p.category === selectedCategory);
+  const filteredProducts = useMemo(() => {
+    if (selectedCategory === "Todas" || selectedCategory === "TODAS") {
+      return allProducts;
+    }
+    return allProducts.filter(
+      (p) => p.category.toUpperCase() === selectedCategory.toUpperCase()
+    );
+  }, [allProducts, selectedCategory]);
 
-  const handleOpenInquiry = (product: ProductItem) => {
+  const handleOpenInquiry = (product: DisplayProduct) => {
     setInquiryModalProduct(product);
     setInquirySubmitted(false);
   };
@@ -43,14 +123,15 @@ export const ProductsSection: React.FC = () => {
         <div className="max-w-3xl mb-10 sm:mb-14">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-campo-green-100 text-campo-green-800 text-xs font-bold uppercase tracking-wider mb-3">
             <span className="w-2 h-2 rounded-full bg-campo-green" />
-            <span>Productos & Soluciones</span>
+            <span>Productos & Soluciones Directo de Fábrica</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
-            Líneas comerciales adaptadas a las exigencias del productor
+            Líneas comerciales y tecnologías vinculadas en tiempo real
           </h2>
           <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed">
-            Explorá nuestro catálogo de insumos y tecnologías. Realizá tu consulta técnica o comercial de forma directa a través de WhatsApp o formulario.
+            Explorá nuestro catálogo de semillas e insumos provistos directamente por los laboratorios y semilleros
+            líderes del país. Realizá tu consulta técnica o cotización mayorista a través de WhatsApp o formulario.
           </p>
         </div>
 
@@ -61,15 +142,18 @@ export const ProductsSection: React.FC = () => {
               <Filter className="w-3.5 h-3.5 text-slate-400" />
               <span>Filtrar:</span>
             </div>
-            {productCategories.map((cat) => {
-              const isActive = selectedCategory === cat;
+            {categoriesList.map((cat) => {
+              const isSelected =
+                (selectedCategory === "Todas" && cat === "TODAS") ||
+                selectedCategory.toUpperCase() === cat.toUpperCase();
+
               return (
                 <button
                   key={cat}
                   type="button"
-                  onClick={() => setSelectedCategory(cat)}
+                  onClick={() => setSelectedCategory(cat === "TODAS" ? "Todas" : cat)}
                   className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 ${
-                    isActive
+                    isSelected
                       ? "bg-campo-green text-white shadow-md shadow-campo-green/20"
                       : "bg-slate-100 text-slate-700 hover:bg-slate-200/80"
                   }`}
@@ -84,7 +168,11 @@ export const ProductsSection: React.FC = () => {
         {/* Grilla de Productos */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredProducts.map((product) => {
-            const productWhatsAppUrl = getWhatsAppLink(product.name);
+            const productQuery = product.empresa
+              ? `${product.name} (${product.empresa})`
+              : product.name;
+            const productWhatsAppUrl = getWhatsAppLink(productQuery);
+            const isDataUrl = product.imageUrl?.startsWith("data:");
 
             return (
               <div
@@ -92,32 +180,70 @@ export const ProductsSection: React.FC = () => {
                 className="group rounded-3xl bg-white border border-slate-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden"
               >
                 {/* Contenedor de Imagen */}
-                <div className="relative w-full h-52 bg-slate-100 overflow-hidden">
-                  <Image
+                <div className="relative w-full h-56 bg-slate-100 overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={product.imageUrl || "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&w=600&q=80"}
                     alt={product.name}
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                    loading="lazy"
                   />
-                  <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-slate-800 shadow-xs">
+                  <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-bold text-slate-800 shadow-sm uppercase tracking-wider">
                     {product.category}
                   </div>
+
+                  {product.empresa && (
+                    <div className="absolute top-3 right-3 bg-emerald-800/95 backdrop-blur-md px-2.5 py-1 rounded-full text-[11px] font-bold text-white shadow-sm flex items-center gap-1">
+                      <Building2 className="w-3 h-3 text-emerald-300" />
+                      <span>{product.empresa}</span>
+                    </div>
+                  )}
+
+                  {product.rubro && (
+                    <div className="absolute bottom-3 left-3 bg-slate-900/80 backdrop-blur-md px-2.5 py-0.5 rounded-md text-[10px] font-bold text-white">
+                      {product.rubro}
+                    </div>
+                  )}
                 </div>
 
                 {/* Contenido de la Ficha */}
                 <div className="p-6 flex-grow flex flex-col justify-between space-y-4">
                   <div>
-                    <h3 className="text-lg sm:text-xl font-bold text-slate-900 leading-snug group-hover:text-campo-green transition-colors">
-                      {product.name}
-                    </h3>
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="text-lg sm:text-xl font-bold text-slate-900 leading-snug group-hover:text-campo-green transition-colors">
+                        {product.name}
+                      </h3>
+                    </div>
+
+                    {/* Principio activo si existe */}
+                    {product.principioActivo && (
+                      <div className="mt-1.5 flex items-center gap-1 text-xs text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60 font-medium">
+                        <Tag className="w-3 h-3 text-emerald-600 flex-shrink-0" />
+                        <span className="line-clamp-1">{product.principioActivo}</span>
+                      </div>
+                    )}
 
                     <p className="mt-2 text-sm text-slate-600 line-clamp-3 leading-relaxed">
                       {product.description}
                     </p>
 
+                    {/* Cultivos preseleccionables */}
+                    {product.cultivos && product.cultivos.length > 0 && (
+                      <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] text-slate-400 font-semibold uppercase">Cultivos:</span>
+                        {product.cultivos.slice(0, 4).map((cultivo) => (
+                          <span
+                            key={cultivo}
+                            className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded-md"
+                          >
+                            {cultivo}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
                     {product.presentation && (
-                      <div className="mt-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 text-xs font-medium">
+                      <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 text-xs font-medium">
                         <Package className="w-3.5 h-3.5 text-campo-green" />
                         <span>{product.presentation}</span>
                       </div>
@@ -133,7 +259,7 @@ export const ProductsSection: React.FC = () => {
                       className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors"
                     >
                       <Send className="w-3.5 h-3.5 text-slate-600" />
-                      <span>Consultar</span>
+                      <span>Cotizar</span>
                     </button>
 
                     {/* Botón WhatsApp Directo con Mensaje Específico */}
@@ -142,7 +268,7 @@ export const ProductsSection: React.FC = () => {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#25D366] hover:bg-[#20bd5a] active:bg-[#1caa51] shadow-xs transition-colors"
-                      title={`Consultar por WhatsApp sobre ${product.name}`}
+                      title={`Consultar por WhatsApp sobre ${productQuery}`}
                     >
                       <MessageCircle className="w-4 h-4 fill-current" />
                       <span>WhatsApp</span>
@@ -157,7 +283,8 @@ export const ProductsSection: React.FC = () => {
         {/* Aclaración Comercial */}
         <div className="mt-12 text-center p-4 rounded-2xl bg-slate-50 border border-slate-200/80 max-w-2xl mx-auto">
           <p className="text-xs text-slate-500 leading-relaxed">
-            * <strong>Objetivo comercial:</strong> Las consultas son canalizadas directamente con nuestro equipo técnico y de ventas para brindarte cotizaciones precisas, disponibilidad en zona y condiciones a medida.
+            * <strong>Venta Mayorista Directa:</strong> Las solicitudes son canalizadas de forma transparente
+            entre el productor y las fábricas proveedoras autorizadas para garantizar máxima trazabilidad, lotes frescos y mejores condiciones de pago.
           </p>
         </div>
       </div>
@@ -180,33 +307,49 @@ export const ProductsSection: React.FC = () => {
                 <div className="w-14 h-14 bg-campo-green-100 text-campo-green rounded-full flex items-center justify-center mx-auto">
                   <Check className="w-8 h-8" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900">¡Consulta enviada!</h3>
+                <h3 className="text-xl font-bold text-slate-900">¡Solicitud recibida!</h3>
                 <p className="text-sm text-slate-600">
-                  Nos comunicaremos a la brevedad con la información sobre <strong>{inquiryModalProduct.name}</strong>.
+                  Nos comunicaremos a la brevedad con la cotización oficial para{" "}
+                  <strong>{inquiryModalProduct.name}</strong>
+                  {inquiryModalProduct.empresa && ` (${inquiryModalProduct.empresa})`}.
                 </p>
               </div>
             ) : (
               <form onSubmit={handleFormSubmit} className="space-y-4">
                 <div>
-                  <span className="text-xs font-bold uppercase text-campo-green tracking-wider">
-                    Consulta Comercial
-                  </span>
-                  <h3 className="text-xl font-bold text-slate-900 mt-1">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-xs font-bold uppercase text-campo-green tracking-wider">
+                      Solicitud de Cotización
+                    </span>
+                    {inquiryModalProduct.empresa && (
+                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                        {inquiryModalProduct.empresa}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">
                     {inquiryModalProduct.name}
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Presentación: {inquiryModalProduct.presentation}
-                  </p>
+                  {inquiryModalProduct.principioActivo && (
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {inquiryModalProduct.principioActivo}
+                    </p>
+                  )}
+                  {inquiryModalProduct.presentation && (
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Presentación: {inquiryModalProduct.presentation}
+                    </p>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Nombre y Apellido *
+                    Nombre y Apellido / Razón Social *
                   </label>
                   <input
                     required
                     type="text"
-                    placeholder="Ej. Juan Pérez"
+                    placeholder="Ej. Juan Pérez / Agropecuaria Don Pedro"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-campo-green"
                   />
                 </div>
@@ -225,12 +368,12 @@ export const ProductsSection: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Localidad / Zona *
+                      Localidad / Destino *
                     </label>
                     <input
                       required
                       type="text"
-                      placeholder="Ej. Pergamino"
+                      placeholder="Ej. Pergamino (Bs As)"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-campo-green"
                     />
                   </div>
@@ -238,7 +381,7 @@ export const ProductsSection: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Email
+                    Email de Contacto
                   </label>
                   <input
                     type="email"
@@ -249,11 +392,11 @@ export const ProductsSection: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Mensaje o volumen requerido
+                    Volumen estimado o requerimientos
                   </label>
                   <textarea
                     rows={2}
-                    defaultValue={`Hola, quisiera consultar disponibilidad y condiciones comerciales para ${inquiryModalProduct.name}.`}
+                    defaultValue={`Hola, quisiera solicitar cotización mayorista y plazo de entrega para ${inquiryModalProduct.name}${inquiryModalProduct.empresa ? ` de ${inquiryModalProduct.empresa}` : ""}.`}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-campo-green"
                   />
                 </div>
@@ -263,11 +406,11 @@ export const ProductsSection: React.FC = () => {
                     type="submit"
                     className="flex-1 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-campo-green hover:bg-campo-green-600 transition-colors shadow-md"
                   >
-                    Enviar Consulta
+                    Enviar Solicitud
                   </button>
 
                   <a
-                    href={getWhatsAppLink(inquiryModalProduct.name)}
+                    href={getWhatsAppLink(inquiryModalProduct.empresa ? `${inquiryModalProduct.name} (${inquiryModalProduct.empresa})` : inquiryModalProduct.name)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-3 rounded-xl bg-[#25D366] text-white hover:bg-[#20bd5a] transition-colors"

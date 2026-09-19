@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
 import {
   AdminTab,
+  FactoryTab,
   AdminSession,
   AdminClient,
   AdminQuotationReceived,
@@ -10,6 +11,13 @@ import {
   AdminEstablishment,
   AdminPaymentMethod,
   AdminDashboardStats,
+  FactoryAccount,
+  FactoryProduct,
+  FactoryQuotationDerivation,
+  FactoryQuotationItem,
+  FactorySale,
+  SaleDocument,
+  FactoryAccountMovement,
 } from "@/types/admin";
 import {
   initialAdminClients,
@@ -19,6 +27,13 @@ import {
   initialAdminPaymentMethods,
   exportTableToExcel,
 } from "@/data/adminData";
+import {
+  initialFactoryAccounts,
+  initialFactoryProducts,
+  initialFactoryQuotations,
+  initialFactorySales,
+  initialFactoryMovements,
+} from "@/data/factoryData";
 
 interface AdminContextType {
   session: AdminSession;
@@ -78,6 +93,55 @@ interface AdminContextType {
   ) => void;
   togglePaymentMethod: (id: string) => void;
   exportPaymentMethodsExcel: () => void;
+  clearAllData: () => void;
+
+  // Estado y navegación del Panel Fábrica
+  factoryActiveTab: FactoryTab;
+  setFactoryActiveTab: (tab: FactoryTab) => void;
+  viewAsFactory: (empresa: string) => void;
+  returnToAdmin: () => void;
+
+  // 1. SECCIÓN: GESTIÓN DE FÁBRICAS (CAMPO DIRECTO)
+  factories: FactoryAccount[];
+  addFactory: (factory: Omit<FactoryAccount, "id" | "fechaAlta">) => FactoryAccount;
+  updateFactory: (id: string, updated: Partial<FactoryAccount>) => void;
+  deleteFactory: (id: string) => void;
+  exportFactoriesExcel: () => void;
+
+  // 2. SECCIÓN: MIS PRODUCTOS (FÁBRICA - ABM VINCULADO AL PORTAL)
+  factoryProducts: FactoryProduct[];
+  addFactoryProduct: (prod: Omit<FactoryProduct, "id" | "fechaActualizacion">) => FactoryProduct;
+  updateFactoryProduct: (id: string, updated: Partial<FactoryProduct>) => void;
+  deleteFactoryProduct: (id: string) => void;
+
+  // 3. SECCIÓN: COTIZACIONES INTERMEDIADAS & GESTIÓN CON LUGAR DE ENTREGA
+  factoryQuotations: FactoryQuotationDerivation[];
+  deriveQuotationToFactory: (
+    cotizacionOriginalId: string,
+    empresa: string,
+    notas?: string
+  ) => FactoryQuotationDerivation | null;
+  submitFactoryQuotationResponse: (
+    derivationId: string,
+    respuesta: NonNullable<FactoryQuotationDerivation["respuestaFabrica"]>,
+    itemsUpdated: FactoryQuotationItem[]
+  ) => void;
+  updateFactoryQuotationMarkup: (
+    derivationId: string,
+    markupGlobal: FactoryQuotationDerivation["markupGlobal"],
+    itemsUpdated: FactoryQuotationItem[]
+  ) => void;
+
+  // 4. SECCIÓN: VENTAS (EN TRÁNSITO Y ENTREGADAS CON 4 COMPROBANTES PDF)
+  factorySales: FactorySale[];
+  addFactorySale: (sale: Omit<FactorySale, "id">) => FactorySale;
+  updateFactorySaleStatus: (id: string, status: FactorySale["estado"]) => void;
+  uploadSaleDocument: (saleId: string, doc: SaleDocument) => void;
+
+  // 5. SECCIÓN: CUENTA CORRIENTE & NOTAS DE CRÉDITO/DÉBITO
+  factoryMovements: FactoryAccountMovement[];
+  addFactoryMovement: (movement: Omit<FactoryAccountMovement, "id">) => FactoryAccountMovement;
+  exportFactoryMovementsExcel: (empresa?: string) => void;
 
   // Estadísticas del Dashboard
   stats: AdminDashboardStats;
@@ -93,6 +157,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [session, setSession] = useState<AdminSession>({
     isAuthenticated: false,
     username: "",
+    role: "admin",
   });
   const [activeTab, setActiveTab] = useState<AdminTab>("dashboard");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -111,6 +176,18 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     initialAdminPaymentMethods
   );
 
+  // Estados específicos para Fábricas
+  const [factoryActiveTab, setFactoryActiveTab] = useState<FactoryTab>("mis-datos");
+  const [factories, setFactories] = useState<FactoryAccount[]>(initialFactoryAccounts);
+  const [factoryProducts, setFactoryProducts] = useState<FactoryProduct[]>(initialFactoryProducts);
+  const [factoryQuotations, setFactoryQuotations] = useState<FactoryQuotationDerivation[]>(
+    initialFactoryQuotations
+  );
+  const [factorySales, setFactorySales] = useState<FactorySale[]>(initialFactorySales);
+  const [factoryMovements, setFactoryMovements] = useState<FactoryAccountMovement[]>(
+    initialFactoryMovements
+  );
+
   // Inicializar estado desde localStorage al montar en el cliente
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -122,29 +199,111 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setSession(JSON.parse(savedSession));
       }
 
-      // 2. Clientes: Limpiar clientes demo anteriores
-      const savedClients = localStorage.getItem("cd_admin_clients");
-      const demoClientIds = ["cli-001", "cli-002", "cli-003", "cli-004", "cli-005"];
-      const demoCuits = [
-        "30-71234567-8",
-        "30-68945231-4",
-        "33-71458923-9",
-        "33-70894512-9",
-        "30-54123789-2",
-      ];
-      const demoUsernames = ["agroperez", "lasmarias", "donesteban", "laaurora", "coopbellville"];
+      // 1. Purga forzada y definitiva de datos demo anteriores
+      const currentStorageVer = localStorage.getItem("cd_panel_storage_version");
+      if (currentStorageVer !== "v5_clean_production") {
+        localStorage.removeItem("cd_admin_clients");
+        localStorage.removeItem("cd_admin_quotations_received");
+        localStorage.removeItem("cd_admin_quotations_sent");
+        localStorage.removeItem("cd_admin_establishments");
+        localStorage.removeItem("cd_client_user");
+        localStorage.removeItem("cd_client_establishments");
+        localStorage.removeItem("cd_client_sent_quotations");
+        localStorage.removeItem("cd_client_rec_quotations");
+        localStorage.setItem("cd_admin_clients", "[]");
+        localStorage.setItem("cd_admin_quotations_received", "[]");
+        localStorage.setItem("cd_admin_quotations_sent", "[]");
+        localStorage.setItem("cd_admin_establishments", "[]");
+        localStorage.setItem("cd_panel_storage_version", "v5_clean_production");
+        setClients([]);
+        setQuotationsReceived([]);
+        setQuotationsSent([]);
+        setEstablishments([]);
+      }
 
+      // Funciones de validación para asegurar que ningún residuo demo aparezca
+      const isDemoClient = (c: any) => {
+        if (!c) return true;
+        const name = (c.razonSocial || c.clienteNombre || "").toUpperCase();
+        if (
+          name.includes("PEREZ") ||
+          name.includes("MARÍAS") ||
+          name.includes("MARIAS") ||
+          name.includes("SANTILLAN") ||
+          name.includes("AURORA") ||
+          name.includes("PEDRO") ||
+          name.includes("ESTEBAN") ||
+          name.includes("BELL VILLE") ||
+          name.includes("DEMO")
+        ) {
+          return true;
+        }
+        const cuitDigits = (c.cuit || c.clienteCuit || "").replace(/\D/g, "");
+        if (
+          ["30712345678", "30689452314", "20284918233", "33708945129", "30589214782", "20334455667", "20123456789"].includes(
+            cuitDigits
+          )
+        ) {
+          return true;
+        }
+        const user = (c.usuario || "").toLowerCase();
+        if (
+          [
+            "agroperez",
+            "estancia_las_marias",
+            "lasmarias",
+            "agro_santillan",
+            "santillan",
+            "la_aurora_agro",
+            "laaurora",
+            "don_pedro_pergamino",
+            "donpedro",
+            "prodagro",
+          ].includes(user)
+        ) {
+          return true;
+        }
+        if (["cli-001", "cli-002", "cli-003", "cli-004", "cli-005"].includes(c.id)) {
+          return true;
+        }
+        return false;
+      };
+
+      const isDemoQuote = (q: any) => {
+        if (!q) return true;
+        if (isDemoClient({ razonSocial: q.clienteNombre, cuit: q.clienteCuit, id: q.clienteId })) return true;
+        if (
+          [
+            "CD-2026-0842",
+            "CD-2026-0791",
+            "CD-2026-0914",
+            "CD-2026-0889",
+            "PROP-9041",
+            "PROP-8812",
+            "PROP-9065",
+          ].includes(q.numero)
+        ) {
+          return true;
+        }
+        if (["sent-001", "sent-002", "sent-003", "sent-004", "rec-001", "rec-002", "rec-003"].includes(q.id)) {
+          return true;
+        }
+        return false;
+      };
+
+      const isDemoEstablishment = (e: any) => {
+        if (!e) return true;
+        if (isDemoClient({ razonSocial: e.clienteNombre, cuit: e.clienteCuit, id: e.clienteId })) return true;
+        if (["est-001", "est-002", "est-003", "est-004", "est-005"].includes(e.id)) return true;
+        return false;
+      };
+
+      // 2. Clientes
+      const savedClients = localStorage.getItem("cd_admin_clients");
       if (savedClients) {
         try {
           const parsed = JSON.parse(savedClients);
-          const cleaned = Array.isArray(parsed)
-            ? parsed.filter(
-                (c: AdminClient) =>
-                  !demoClientIds.includes(c.id) &&
-                  !demoCuits.includes(c.cuit) &&
-                  !demoUsernames.includes((c.usuario || "").toLowerCase())
-              )
-            : [];
+          const cleaned = Array.isArray(parsed) ? parsed.filter((c) => !isDemoClient(c)) : [];
           setClients(cleaned);
           localStorage.setItem("cd_admin_clients", JSON.stringify(cleaned));
         } catch {
@@ -154,22 +313,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setClients([]);
       }
 
-      // 3. Cotizaciones Recibidas: Limpiar cotizaciones demo anteriores
+      // 3. Cotizaciones Recibidas
       const savedRec = localStorage.getItem("cd_admin_quotations_received");
-      const demoQuoteRecIds = ["sent-001", "sent-002", "sent-003", "sent-004"];
-      const demoQuoteRecNumbers = ["CD-2026-0842", "CD-2026-0791", "CD-2026-0914", "CD-2026-0889"];
       if (savedRec) {
         try {
           const parsed = JSON.parse(savedRec);
-          const cleaned = Array.isArray(parsed)
-            ? parsed.filter(
-                (q: AdminQuotationReceived) =>
-                  !demoQuoteRecIds.includes(q.id) &&
-                  !demoQuoteRecNumbers.includes(q.numero) &&
-                  !(q.clienteCuit && demoCuits.includes(q.clienteCuit)) &&
-                  !(q.clienteId && demoClientIds.includes(q.clienteId))
-              )
-            : [];
+          const cleaned = Array.isArray(parsed) ? parsed.filter((q) => !isDemoQuote(q)) : [];
           setQuotationsReceived(cleaned);
           localStorage.setItem("cd_admin_quotations_received", JSON.stringify(cleaned));
         } catch {
@@ -179,22 +328,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setQuotationsReceived([]);
       }
 
-      // 4. Cotizaciones Enviadas: Limpiar propuestas demo anteriores
+      // 4. Cotizaciones Enviadas
       const savedSent = localStorage.getItem("cd_admin_quotations_sent");
-      const demoQuoteSentIds = ["rec-001", "rec-002", "rec-003"];
-      const demoQuoteSentNumbers = ["PROP-9041", "PROP-8812", "PROP-9065"];
       if (savedSent) {
         try {
           const parsed = JSON.parse(savedSent);
-          const cleaned = Array.isArray(parsed)
-            ? parsed.filter(
-                (q: AdminQuotationSent) =>
-                  !demoQuoteSentIds.includes(q.id) &&
-                  !demoQuoteSentNumbers.includes(q.numero) &&
-                  !(q.clienteCuit && demoCuits.includes(q.clienteCuit)) &&
-                  !(q.clienteId && demoClientIds.includes(q.clienteId))
-              )
-            : [];
+          const cleaned = Array.isArray(parsed) ? parsed.filter((q) => !isDemoQuote(q)) : [];
           setQuotationsSent(cleaned);
           localStorage.setItem("cd_admin_quotations_sent", JSON.stringify(cleaned));
         } catch {
@@ -204,20 +343,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setQuotationsSent([]);
       }
 
-      // 5. Establecimientos: Borrar los de prueba y mantener solo los cargados por el operador
+      // 5. Establecimientos
       const savedEst = localStorage.getItem("cd_admin_establishments");
       if (savedEst) {
         try {
           const parsed = JSON.parse(savedEst);
-          const demoIds = ["est-001", "est-002", "est-003", "est-004", "est-005"];
-          const cleaned = Array.isArray(parsed)
-            ? parsed.filter(
-                (e: AdminEstablishment) =>
-                  !demoIds.includes(e.id) &&
-                  !(e.clienteCuit && demoCuits.includes(e.clienteCuit)) &&
-                  !(e.clienteId && demoClientIds.includes(e.clienteId))
-              )
-            : [];
+          const cleaned = Array.isArray(parsed) ? parsed.filter((e) => !isDemoEstablishment(e)) : [];
           setEstablishments(cleaned);
           localStorage.setItem("cd_admin_establishments", JSON.stringify(cleaned));
         } catch {
@@ -245,47 +376,25 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ]);
 
           if (recRes.status === "fulfilled" && recRes.value?.success && Array.isArray(recRes.value.data)) {
-            const cleaned = recRes.value.data.filter(
-              (q: AdminQuotationReceived) =>
-                !demoQuoteRecIds.includes(q.id) &&
-                !demoQuoteRecNumbers.includes(q.numero) &&
-                !(q.clienteCuit && demoCuits.includes(q.clienteCuit)) &&
-                !(q.clienteId && demoClientIds.includes(q.clienteId))
-            );
+            const cleaned = recRes.value.data.filter((q: any) => !isDemoQuote(q));
             setQuotationsReceived(cleaned);
             localStorage.setItem("cd_admin_quotations_received", JSON.stringify(cleaned));
           }
 
           if (sentRes.status === "fulfilled" && sentRes.value?.success && Array.isArray(sentRes.value.data)) {
-            const cleaned = sentRes.value.data.filter(
-              (q: AdminQuotationSent) =>
-                !demoQuoteSentIds.includes(q.id) &&
-                !demoQuoteSentNumbers.includes(q.numero) &&
-                !(q.clienteCuit && demoCuits.includes(q.clienteCuit)) &&
-                !(q.clienteId && demoClientIds.includes(q.clienteId))
-            );
+            const cleaned = sentRes.value.data.filter((q: any) => !isDemoQuote(q));
             setQuotationsSent(cleaned);
             localStorage.setItem("cd_admin_quotations_sent", JSON.stringify(cleaned));
           }
 
           if (cliRes.status === "fulfilled" && cliRes.value?.success && Array.isArray(cliRes.value.data)) {
-            const cleaned = cliRes.value.data.filter(
-              (c: AdminClient) =>
-                !demoClientIds.includes(c.id) &&
-                !demoCuits.includes(c.cuit) &&
-                !demoUsernames.includes((c.usuario || "").toLowerCase())
-            );
+            const cleaned = cliRes.value.data.filter((c: any) => !isDemoClient(c));
             setClients(cleaned);
             localStorage.setItem("cd_admin_clients", JSON.stringify(cleaned));
           }
 
           if (estRes.status === "fulfilled" && estRes.value?.success && Array.isArray(estRes.value.data)) {
-            const cleaned = estRes.value.data.filter(
-              (e: AdminEstablishment) =>
-                !demoIds.includes(e.id) &&
-                !(e.clienteCuit && demoCuits.includes(e.clienteCuit)) &&
-                !(e.clienteId && demoClientIds.includes(e.clienteId))
-            );
+            const cleaned = estRes.value.data.filter((e: any) => !isDemoEstablishment(e));
             setEstablishments(cleaned);
             localStorage.setItem("cd_admin_establishments", JSON.stringify(cleaned));
           }
@@ -301,13 +410,73 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       };
 
+      // 7. Fábricas
+      const savedFab = localStorage.getItem("cd_factory_accounts");
+      if (savedFab) {
+        try {
+          setFactories(JSON.parse(savedFab));
+        } catch {
+          setFactories(initialFactoryAccounts);
+        }
+      } else {
+        localStorage.setItem("cd_factory_accounts", JSON.stringify(initialFactoryAccounts));
+      }
+
+      // 8. Productos Fábrica
+      const savedFabProd = localStorage.getItem("cd_factory_products");
+      if (savedFabProd) {
+        try {
+          setFactoryProducts(JSON.parse(savedFabProd));
+        } catch {
+          setFactoryProducts(initialFactoryProducts);
+        }
+      } else {
+        localStorage.setItem("cd_factory_products", JSON.stringify(initialFactoryProducts));
+      }
+
+      // 9. Cotizaciones Fábrica
+      const savedFabQuotes = localStorage.getItem("cd_factory_quotations");
+      if (savedFabQuotes) {
+        try {
+          setFactoryQuotations(JSON.parse(savedFabQuotes));
+        } catch {
+          setFactoryQuotations(initialFactoryQuotations);
+        }
+      } else {
+        localStorage.setItem("cd_factory_quotations", JSON.stringify(initialFactoryQuotations));
+      }
+
+      // 10. Ventas Fábrica
+      const savedFabSales = localStorage.getItem("cd_factory_sales");
+      if (savedFabSales) {
+        try {
+          setFactorySales(JSON.parse(savedFabSales));
+        } catch {
+          setFactorySales(initialFactorySales);
+        }
+      } else {
+        localStorage.setItem("cd_factory_sales", JSON.stringify(initialFactorySales));
+      }
+
+      // 11. Cuenta Corriente Fábrica
+      const savedFabMov = localStorage.getItem("cd_factory_movements");
+      if (savedFabMov) {
+        try {
+          setFactoryMovements(JSON.parse(savedFabMov));
+        } catch {
+          setFactoryMovements(initialFactoryMovements);
+        }
+      } else {
+        localStorage.setItem("cd_factory_movements", JSON.stringify(initialFactoryMovements));
+      }
+
       syncWithServer();
     } catch (e) {
       console.error("Error cargando datos administrativos locales:", e);
     }
   }, []);
 
-  // Métodos de autenticación
+  // Métodos de autenticación unificada
   const login = (usuario: string, contrasenia: string): { success: boolean; error?: string } => {
     const cleanUser = usuario.trim();
     const cleanPass = contrasenia.trim();
@@ -319,6 +488,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: false, error: "Por favor ingresá la contraseña de acceso." };
     }
 
+    // 1. Acceso Administrador Campo Directo
     if (
       cleanUser.toLowerCase() === ADMIN_USER_EXPECTED.toLowerCase() &&
       cleanPass === ADMIN_PASS_EXPECTED
@@ -326,6 +496,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const newSession: AdminSession = {
         isAuthenticated: true,
         username: ADMIN_USER_EXPECTED,
+        role: "admin",
         loginTime: new Date().toISOString(),
       };
       setSession(newSession);
@@ -337,16 +508,97 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: true };
     }
 
+    // 2. Acceso Usuario Fábrica (fab.empresa / claveActiva)
+    const currentFactories = (() => {
+      try {
+        const stored = localStorage.getItem("cd_factory_accounts");
+        return stored ? JSON.parse(stored) : factories;
+      } catch {
+        return factories;
+      }
+    })();
+
+    const foundFab = currentFactories.find(
+      (f: FactoryAccount) => f.usuario.toLowerCase() === cleanUser.toLowerCase()
+    );
+
+    if (foundFab) {
+      if (cleanPass === foundFab.claveActiva) {
+        if (foundFab.estado === "INACTIVO") {
+          return {
+            success: false,
+            error: "La cuenta de la empresa se encuentra temporalmente inactiva. Contactate con Campo Directo.",
+          };
+        }
+
+        const newSession: AdminSession = {
+          isAuthenticated: true,
+          username: foundFab.usuario,
+          role: "fabrica",
+          empresa: foundFab.empresa,
+          loginTime: new Date().toISOString(),
+        };
+        setSession(newSession);
+        setFactoryActiveTab("mis-datos");
+        try {
+          localStorage.setItem("cd_admin_session", JSON.stringify(newSession));
+        } catch (e) {
+          console.error(e);
+        }
+        return { success: true };
+      } else {
+        return {
+          success: false,
+          error: "Contraseña incorrecta para el usuario de fábrica ingresado.",
+        };
+      }
+    }
+
     return {
       success: false,
-      error: "Credenciales incorrectas. Verificá tu usuario y contraseña de administrador.",
+      error: "Credenciales incorrectas. Verificá tu usuario y contraseña de operador o fábrica.",
     };
   };
 
   const logout = () => {
-    setSession({ isAuthenticated: false, username: "" });
+    setSession({ isAuthenticated: false, username: "", role: "admin" });
     try {
       localStorage.removeItem("cd_admin_session");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const viewAsFactory = (empresa: string) => {
+    const found = factories.find((f) => f.empresa.toLowerCase() === empresa.toLowerCase());
+    const username = found ? found.usuario : `fab.${empresa.toLowerCase().replace(/\s+/g, "")}`;
+    const newSession: AdminSession = {
+      isAuthenticated: true,
+      username,
+      role: "fabrica",
+      empresa: found ? found.empresa : empresa,
+      loginTime: new Date().toISOString(),
+    };
+    setSession(newSession);
+    setFactoryActiveTab("mis-datos");
+    try {
+      localStorage.setItem("cd_admin_session", JSON.stringify(newSession));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const returnToAdmin = () => {
+    const newSession: AdminSession = {
+      isAuthenticated: true,
+      username: ADMIN_USER_EXPECTED,
+      role: "admin",
+      loginTime: new Date().toISOString(),
+    };
+    setSession(newSession);
+    setActiveTab("fabricas");
+    try {
+      localStorage.setItem("cd_admin_session", JSON.stringify(newSession));
     } catch (e) {
       console.error(e);
     }
@@ -757,6 +1009,378 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     exportTableToExcel(exportData, "Formas_de_Pago_Campo_Directo", "FormasDePago");
   };
 
+  const clearAllData = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("cd_admin_clients");
+      localStorage.removeItem("cd_admin_quotations_received");
+      localStorage.removeItem("cd_admin_quotations_sent");
+      localStorage.removeItem("cd_admin_establishments");
+      localStorage.removeItem("cd_client_user");
+      localStorage.removeItem("cd_client_establishments");
+      localStorage.removeItem("cd_client_sent_quotations");
+      localStorage.removeItem("cd_client_rec_quotations");
+      localStorage.setItem("cd_admin_clients", "[]");
+      localStorage.setItem("cd_admin_quotations_received", "[]");
+      localStorage.setItem("cd_admin_quotations_sent", "[]");
+      localStorage.setItem("cd_admin_establishments", "[]");
+      localStorage.setItem("cd_panel_storage_version", "v5_clean_production");
+    }
+    setClients([]);
+    setQuotationsReceived([]);
+    setQuotationsSent([]);
+    setEstablishments([]);
+  };
+
+  // 1. CRUD FÁBRICAS (GESTIÓN OPERADOR CAMPO DIRECTO)
+  const addFactory = (data: Omit<FactoryAccount, "id" | "fechaAlta">): FactoryAccount => {
+    const now = new Date();
+    const formattedDate = `${now.getDate().toString().padStart(2, "0")}/${(now.getMonth() + 1)
+      .toString()
+      .padStart(2, "0")}/${now.getFullYear()}`;
+
+    const newFactory: FactoryAccount = {
+      ...data,
+      id: `fab-${Date.now()}`,
+      fechaAlta: formattedDate,
+    };
+
+    setFactories((prev) => {
+      const next = [newFactory, ...prev];
+      try {
+        localStorage.setItem("cd_factory_accounts", JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+
+    return newFactory;
+  };
+
+  const updateFactory = (id: string, updated: Partial<FactoryAccount>) => {
+    setFactories((prev) => {
+      const next = prev.map((f) => (f.id === id ? { ...f, ...updated } : f));
+      try {
+        localStorage.setItem("cd_factory_accounts", JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  };
+
+  const deleteFactory = (id: string) => {
+    setFactories((prev) => {
+      const next = prev.filter((f) => f.id !== id);
+      try {
+        localStorage.setItem("cd_factory_accounts", JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  };
+
+  const exportFactoriesExcel = () => {
+    const exportData = factories.map((f) => ({
+      "Empresa": f.empresa,
+      "Razón Social": f.razonSocial,
+      "CUIT": f.cuit,
+      "Contacto Comercial": f.contactoComercial,
+      "WhatsApp": f.whatsapp,
+      "Email": f.email,
+      "Usuario de Acceso": f.usuario,
+      "Clave Activa": f.claveActiva,
+      "Estado": f.estado,
+      "Fecha Alta": f.fechaAlta,
+      "Rubro": f.rubroPrincipal || "Insumos",
+      "Localidad": f.localidad || "-",
+      "Provincia": f.provincia || "-",
+    }));
+    exportTableToExcel(exportData, "Fabricas_Aliadas_Campo_Directo", "Fabricas");
+  };
+
+  // 2. SECCIÓN: MIS PRODUCTOS (ABM VINCULADO AL PORTAL)
+  const addFactoryProduct = (
+    data: Omit<FactoryProduct, "id" | "fechaActualizacion">
+  ): FactoryProduct => {
+    const now = new Date();
+    const formattedDate = `${now.getDate().toString().padStart(2, "0")}/${(now.getMonth() + 1)
+      .toString()
+      .padStart(2, "0")}/${now.getFullYear()}`;
+
+    const newProd: FactoryProduct = {
+      ...data,
+      id: `fprod-${Date.now()}`,
+      fechaActualizacion: formattedDate,
+    };
+
+    setFactoryProducts((prev) => {
+      const next = [newProd, ...prev];
+      try {
+        localStorage.setItem("cd_factory_products", JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+
+    return newProd;
+  };
+
+  const updateFactoryProduct = (id: string, updated: Partial<FactoryProduct>) => {
+    const now = new Date();
+    const formattedDate = `${now.getDate().toString().padStart(2, "0")}/${(now.getMonth() + 1)
+      .toString()
+      .padStart(2, "0")}/${now.getFullYear()}`;
+
+    setFactoryProducts((prev) => {
+      const next = prev.map((p) =>
+        p.id === id ? { ...p, ...updated, fechaActualizacion: formattedDate } : p
+      );
+      try {
+        localStorage.setItem("cd_factory_products", JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  };
+
+  const deleteFactoryProduct = (id: string) => {
+    setFactoryProducts((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      try {
+        localStorage.setItem("cd_factory_products", JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  };
+
+  // 3. SECCIÓN: COTIZACIONES INTERMEDIADAS & GESTIÓN CON LUGAR DE ENTREGA
+  const deriveQuotationToFactory = (
+    cotizacionOriginalId: string,
+    empresa: string,
+    notas?: string
+  ): FactoryQuotationDerivation | null => {
+    const original = quotationsReceived.find((q) => q.id === cotizacionOriginalId);
+    if (!original) return null;
+
+    const now = new Date();
+    const formattedDate = `${now.getDate().toString().padStart(2, "0")}/${(now.getMonth() + 1)
+      .toString()
+      .padStart(2, "0")}/${now.getFullYear()}`;
+
+    const newDerivation: FactoryQuotationDerivation = {
+      id: `deriv-${Date.now()}`,
+      cotizacionOriginalId: original.id,
+      numeroCotizacion: original.numero,
+      fechaDerivacion: formattedDate,
+      empresa,
+      clienteNombre: original.clienteNombre,
+      clienteCuit: original.clienteCuit,
+      clienteTelefono: original.clienteTelefono,
+      clienteEmail: original.clienteEmail,
+      lugarEntrega: {
+        establecimiento: original.establecimientoDestino || "Establecimiento Principal",
+        localidad: original.localidad || "Zona de Entrega",
+        provincia: original.provincia || "Argentina",
+        coordenadasGps: original.coordenadasGps,
+        linkMaps: original.linkMaps,
+        tipoDescarga: original.tipoDescarga || "Tranquera de campo / Galpón",
+        referenciaAcceso: original.referenciaAcceso,
+      },
+      formaPago: original.formaPagoSolicitada,
+      items: (original.items || []).map((it) => ({
+        id: `it-f-${Date.now()}-${it.id}`,
+        producto: it.nombre,
+        categoria: it.categoriaOVariedad,
+        cantidad: it.cantidad,
+        unidad: it.unidad,
+        detalle: it.detalle,
+      })),
+      estado: "DERIVADA_A_FABRICA",
+      notasCampoDirecto: notas,
+    };
+
+    setFactoryQuotations((prev) => {
+      const next = [newDerivation, ...prev];
+      try {
+        localStorage.setItem("cd_factory_quotations", JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+
+    updateQuotationReceivedStatus(cotizacionOriginalId, "EN EVALUACIÓN");
+    return newDerivation;
+  };
+
+  const submitFactoryQuotationResponse = (
+    derivationId: string,
+    respuesta: NonNullable<FactoryQuotationDerivation["respuestaFabrica"]>,
+    itemsUpdated: FactoryQuotationItem[]
+  ) => {
+    setFactoryQuotations((prev) => {
+      const next = prev.map((q) =>
+        q.id === derivationId
+          ? {
+              ...q,
+              estado: "COTIZADA_POR_FABRICA" as const,
+              respuestaFabrica: respuesta,
+              items: itemsUpdated,
+            }
+          : q
+      );
+      try {
+        localStorage.setItem("cd_factory_quotations", JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  };
+
+  const updateFactoryQuotationMarkup = (
+    derivationId: string,
+    markupGlobal: FactoryQuotationDerivation["markupGlobal"],
+    itemsUpdated: FactoryQuotationItem[]
+  ) => {
+    setFactoryQuotations((prev) => {
+      const next = prev.map((q) =>
+        q.id === derivationId
+          ? {
+              ...q,
+              markupGlobal,
+              items: itemsUpdated,
+              estado: "ENVIADA_A_CLIENTE" as const,
+            }
+          : q
+      );
+      try {
+        localStorage.setItem("cd_factory_quotations", JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  };
+
+  // 4. SECCIÓN: VENTAS (EN TRÁNSITO Y ENTREGADAS CON 4 COMPROBANTES PDF)
+  const addFactorySale = (saleData: Omit<FactorySale, "id">): FactorySale => {
+    const newSale: FactorySale = {
+      ...saleData,
+      id: `vta-${Date.now()}`,
+    };
+
+    setFactorySales((prev) => {
+      const next = [newSale, ...prev];
+      try {
+        localStorage.setItem("cd_factory_sales", JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+
+    return newSale;
+  };
+
+  const updateFactorySaleStatus = (id: string, status: FactorySale["estado"]) => {
+    const now = new Date();
+    const formattedDate = `${now.getDate().toString().padStart(2, "0")}/${(now.getMonth() + 1)
+      .toString()
+      .padStart(2, "0")}/${now.getFullYear()}`;
+
+    setFactorySales((prev) => {
+      const next = prev.map((s) =>
+        s.id === id
+          ? {
+              ...s,
+              estado: status,
+              fechaEntregaReal: status === "ENTREGADA" ? formattedDate : s.fechaEntregaReal,
+            }
+          : s
+      );
+      try {
+        localStorage.setItem("cd_factory_sales", JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  };
+
+  const uploadSaleDocument = (saleId: string, doc: SaleDocument) => {
+    setFactorySales((prev) => {
+      const next = prev.map((s) => {
+        if (s.id !== saleId) return s;
+        if (doc.tipo === "REMITO") return { ...s, pdfRemito: doc };
+        if (doc.tipo === "FACTURA") return { ...s, pdfFactura: doc };
+        if (doc.tipo === "PAGO") return { ...s, pdfPago: doc };
+        if (doc.tipo === "RECIBO") return { ...s, pdfRecibo: doc };
+        return s;
+      });
+      try {
+        localStorage.setItem("cd_factory_sales", JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  };
+
+  // 5. SECCIÓN: CUENTA CORRIENTE & NOTAS DE CRÉDITO/DÉBITO
+  const addFactoryMovement = (
+    movementData: Omit<FactoryAccountMovement, "id">
+  ): FactoryAccountMovement => {
+    const newMov: FactoryAccountMovement = {
+      ...movementData,
+      id: `mov-${Date.now()}`,
+    };
+
+    setFactoryMovements((prev) => {
+      const next = [newMov, ...prev];
+      try {
+        localStorage.setItem("cd_factory_movements", JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+
+    return newMov;
+  };
+
+  const exportFactoryMovementsExcel = (empresa?: string) => {
+    const filtered = empresa
+      ? factoryMovements.filter((m) => m.empresa.toLowerCase() === empresa.toLowerCase())
+      : factoryMovements;
+
+    const exportData = filtered.map((m) => ({
+      "Fecha": m.fecha,
+      "Fábrica": m.empresa,
+      "Tipo Comprobante": m.tipo,
+      "N° Comprobante": m.numeroComprobante,
+      "Concepto": m.concepto,
+      "Operación Relacionada": m.operacionRelacionada || "-",
+      "Débito (USD)": m.debitoUsd,
+      "Crédito (USD)": m.creditoUsd,
+      "Saldo Acumulado (USD)": m.saldoAcumuladoUsd,
+      "Markup Campo Directo (USD)": m.markupIntermediarioUsd || 0,
+      "Observaciones": m.observaciones || "-",
+    }));
+
+    exportTableToExcel(
+      exportData,
+      `Cuenta_Corriente_${empresa ? empresa : "Todas_las_Fabricas"}_Campo_Directo`,
+      "CuentaCorriente"
+    );
+  };
+
   // Estadísticas del Dashboard
   const stats: AdminDashboardStats = useMemo(() => {
     const pendientes = quotationsReceived.filter(
@@ -768,14 +1392,20 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       0
     );
 
+    const ventasTransitoUsd = factorySales
+      .filter((s) => s.estado === "EN_TRANSITO")
+      .reduce((acc, curr) => acc + (curr.totalFabricaUsd || 0), 0);
+
     return {
       totalClientes: clients.length,
       cotizacionesPendientes: pendientes,
       cotizacionesEnviadasTotalUsd: totalUsd,
       establecimientosTotales: establishments.length,
       cotizacionesMes: quotationsReceived.length + quotationsSent.length,
+      totalFabricas: factories.length,
+      ventasTransitoTotalUsd: ventasTransitoUsd,
     };
-  }, [clients, quotationsReceived, quotationsSent, establishments]);
+  }, [clients, quotationsReceived, quotationsSent, establishments, factories, factorySales]);
 
   return (
     <AdminContext.Provider
@@ -787,6 +1417,30 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setSearchQuery,
         login,
         logout,
+        factoryActiveTab,
+        setFactoryActiveTab,
+        viewAsFactory,
+        returnToAdmin,
+        factories,
+        addFactory,
+        updateFactory,
+        deleteFactory,
+        exportFactoriesExcel,
+        factoryProducts,
+        addFactoryProduct,
+        updateFactoryProduct,
+        deleteFactoryProduct,
+        factoryQuotations,
+        deriveQuotationToFactory,
+        submitFactoryQuotationResponse,
+        updateFactoryQuotationMarkup,
+        factorySales,
+        addFactorySale,
+        updateFactorySaleStatus,
+        uploadSaleDocument,
+        factoryMovements,
+        addFactoryMovement,
+        exportFactoryMovementsExcel,
         clients,
         addClient,
         updateClient,
@@ -811,6 +1465,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updatePaymentMethod,
         togglePaymentMethod,
         exportPaymentMethodsExcel,
+        clearAllData,
         stats,
       }}
     >

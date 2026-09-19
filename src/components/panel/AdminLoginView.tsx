@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Lock, User, Eye, EyeOff, ShieldCheck, AlertCircle, ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { Lock, User, Eye, EyeOff, ShieldCheck, AlertCircle, ArrowRight, ArrowLeft } from "lucide-react";
 import { useAdmin } from "@/context/AdminContext";
 import { Logo } from "@/components/ui/Logo";
 
@@ -33,20 +34,32 @@ export const AdminLoginView: React.FC = () => {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] h-[480px] bg-campo-green-600/15 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative w-full max-w-md">
-        {/* Encabezado con Logo */}
+        {/* Botón destacado: Regresar a Campo Directo */}
+        <div className="mb-6 flex justify-center">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 text-slate-200 hover:text-white text-xs font-semibold backdrop-blur-md border border-white/15 shadow-lg transition-all active:scale-95 group"
+            title="Volver a la página principal de Campo Directo"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-campo-green-400 group-hover:-translate-x-0.5 transition-transform" />
+            <span>Regresar a Campo Directo</span>
+          </Link>
+        </div>
+
+        {/* Encabezado con Logo Agrandado */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-2xl mb-4">
-            <Logo variant="standard" className="h-10 w-auto" />
+          <div className="inline-flex items-center justify-center p-4 sm:p-5 rounded-3xl bg-white/10 backdrop-blur-md border border-white/15 shadow-2xl mb-4">
+            <Logo variant="standard" className="h-16 sm:h-20 w-auto filter drop-shadow-md" priority />
           </div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-campo-green-500/20 text-campo-green-300 text-xs font-semibold uppercase tracking-wider mb-2 border border-campo-green-500/30">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-campo-green-500/20 text-campo-green-300 text-xs font-semibold uppercase tracking-wider mb-2 border border-campo-green-500/30">
             <ShieldCheck className="w-3.5 h-3.5" />
-            Acceso Administrativo
+            Acceso Panel de Control
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
             Panel de Control
           </h1>
           <p className="text-sm text-slate-300 mt-1.5">
-            Gestión interna de operaciones, clientes y cotizaciones
+            Gestión de operaciones, cotizaciones y acceso a fábricas aliadas
           </p>
         </div>
 
@@ -65,7 +78,7 @@ export const AdminLoginView: React.FC = () => {
                 htmlFor="admin-user"
                 className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5"
               >
-                Usuario Operador
+                Usuario Operador o Fábrica
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -77,7 +90,7 @@ export const AdminLoginView: React.FC = () => {
                   required
                   value={usuario}
                   onChange={(e) => setUsuario(e.target.value)}
-                  placeholder="Ej: CampoDirecto"
+                  placeholder="Ej: CampoDirecto o fab.adama"
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-campo-green-500 focus:border-transparent transition-all"
                 />
               </div>

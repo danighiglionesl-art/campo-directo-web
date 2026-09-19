@@ -8,15 +8,27 @@ interface LogoProps {
   priority?: boolean;
   width?: number;
   height?: number;
+  size?: "sm" | "md" | "lg" | string;
 }
 
 export const Logo: React.FC<LogoProps> = ({
-  className = "h-12 w-auto",
+  className,
   variant = "standard",
   priority = false,
   width = 400,
   height = 250,
+  size,
 }) => {
+  const sizeClass =
+    size === "sm"
+      ? "h-8 w-auto"
+      : size === "lg"
+      ? "h-16 w-auto"
+      : size === "md"
+      ? "h-10 w-auto"
+      : "h-12 w-auto";
+  const effectiveClass = className || sizeClass;
+
   // Selección del archivo de logotipo oficial provisto por el usuario
   const logoSrc =
     variant === "3d"
@@ -29,7 +41,7 @@ export const Logo: React.FC<LogoProps> = ({
       className="inline-flex items-center group focus:outline-none focus:ring-2 focus:ring-campo-green focus:ring-offset-2 rounded-lg transition-transform hover:scale-105"
       aria-label="Campo Directo - Inicio"
     >
-      <div className={`relative flex items-center justify-center ${className}`}>
+      <div className={`relative flex items-center justify-center ${effectiveClass}`}>
         <Image
           src={logoSrc}
           alt="Campo Directo"
