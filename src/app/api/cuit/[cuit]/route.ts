@@ -52,7 +52,50 @@ const AGRO_CORPORATE_DIRECTORY: Record<string, string> = {
   "30999032083": "ADMINISTRACION FEDERAL DE INGRESOS PUBLICOS (AFIP / ARCA)",
 };
 
-// Consulta oficial al padrón público de AFIP / Constancias (CuitOnline)
+// Validación estricta para evitar cadenas basura, desafíos de Cloudflare y páginas de bloqueo
+function isInvalidRazonSocial(name: string | null | undefined): boolean {
+  if (!name) return true;
+  const clean = name.trim().toUpperCase();
+  if (clean.length < 3) return true;
+
+  const blockedPhrases = [
+    "JUST A MOMENT",
+    "MOMENT...",
+    "CLOUDFLARE",
+    "ATTENTION REQUIRED",
+    "SECURITY CHECK",
+    "ACCESS DENIED",
+    "BOT DETECTION",
+    "CHECKING YOUR BROWSER",
+    "PLEASE WAIT",
+    "TURNSTILE",
+    "CAPTCHA",
+    "RAY ID",
+    "DDOS",
+    "CHALLENGE",
+    "VERIFY YOU ARE HUMAN",
+    "ERROR",
+    "404",
+    "403",
+    "500",
+    "502",
+    "503",
+    "NOT FOUND",
+    "FORBIDDEN",
+    "UNAUTHORIZED",
+    "CUIT ONLINE",
+    "CUITONLINE",
+    "CONSTANCIA DE CUIT",
+    "PADRON",
+    "DETALLE",
+    "INICIO",
+    "BUSCADOR",
+  ];
+
+  return blockedPhrases.some((phrase) => clean.includes(phrase));
+}
+
+// Consulta oficial al padrón público de AFIP / Constancias (CuitOnline) con protección antibot
 async function fetchCuitOnline(cleanCuit: string): Promise<string | null> {
   return new Promise((resolve) => {
     const url = `https://www.cuitonline.com/detalle/${cleanCuit}/`;
@@ -66,16 +109,29 @@ async function fetchCuitOnline(cleanCuit: string): Promise<string | null> {
     };
 
     const extractFromHtml = (html: string): string | null => {
-      const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-      if (h1Match && !h1Match[1].includes("404") && !h1Match[1].toLowerCase().includes("error")) {
-        const cleaned = h1Match[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().toUpperCase();
-        if (cleaned && cleaned.length > 2) return cleaned;
+      if (
+        !html ||
+        html.includes("Just a moment...") ||
+        html.includes("challenges.cloudflare.com") ||
+        html.includes("Attention Required! | Cloudflare")
+      ) {
+        return null;
       }
-      const titleMatch = html.match(/<title>\s*([^(<]+)/i);
-      if (titleMatch && !titleMatch[1].includes("404") && !titleMatch[1].toLowerCase().includes("error")) {
+
+      // 1. Título oficial en CuitOnline: "NOMBRE APELLIDO (XX-XXXXXXXX-X)... - Cuit Online"
+      const titleMatch = html.match(/<title>\s*([^(<]+)\s*\(/i);
+      if (titleMatch && titleMatch[1]) {
         const cleaned = titleMatch[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().toUpperCase();
-        if (cleaned && cleaned.length > 2) return cleaned;
+        if (!isInvalidRazonSocial(cleaned)) return cleaned;
       }
+
+      // 2. Encabezado principal H1
+      const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+      if (h1Match && h1Match[1]) {
+        const cleaned = h1Match[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().toUpperCase();
+        if (!isInvalidRazonSocial(cleaned)) return cleaned;
+      }
+
       return null;
     };
 
@@ -85,7 +141,10 @@ async function fetchCuitOnline(cleanCuit: string): Promise<string | null> {
         const loc = res.headers.location;
         const slugMatch = loc.match(/\/detalle\/\d+\/([^.]+)\.html/i);
         if (slugMatch && slugMatch[1] && !slugMatch[1].includes("404")) {
-          slugFallback = slugMatch[1].replace(/-/g, " ").replace(/\s+/g, " ").trim().toUpperCase();
+          const rawSlug = slugMatch[1].replace(/-/g, " ").replace(/\s+/g, " ").trim().toUpperCase();
+          if (!isInvalidRazonSocial(rawSlug)) {
+            slugFallback = rawSlug;
+          }
         }
 
         const nextUrl = loc.startsWith("http")
@@ -93,12 +152,19 @@ async function fetchCuitOnline(cleanCuit: string): Promise<string | null> {
           : `https://www.cuitonline.com${loc.startsWith("/") ? "" : "/"}${loc}`;
 
         const req2 = https.get(nextUrl, options, (res2) => {
+          if (res2.statusCode !== 200) {
+            return resolve(slugFallback || null);
+          }
           let body = "";
           res2.on("data", (c) => (body += c));
           res2.on("end", () => {
             const extracted = extractFromHtml(body);
-            if (extracted) return resolve(extracted);
-            if (slugFallback) return resolve(slugFallback);
+            if (extracted && !isInvalidRazonSocial(extracted)) {
+              return resolve(extracted);
+            }
+            if (slugFallback && !isInvalidRazonSocial(slugFallback)) {
+              return resolve(slugFallback);
+            }
             resolve(null);
           });
         });
@@ -114,7 +180,10 @@ async function fetchCuitOnline(cleanCuit: string): Promise<string | null> {
       res.on("data", (c) => (body += c));
       res.on("end", () => {
         const extracted = extractFromHtml(body);
-        resolve(extracted);
+        if (extracted && !isInvalidRazonSocial(extracted)) {
+          return resolve(extracted);
+        }
+        resolve(null);
       });
     });
 
@@ -152,7 +221,10 @@ async function fetchBcraDenominacion(cleanCuit: string): Promise<string | null> 
             try {
               const json = JSON.parse(data);
               if (json.results && json.results.denominacion) {
-                return resolve(String(json.results.denominacion).trim());
+                const name = String(json.results.denominacion).trim();
+                if (!isInvalidRazonSocial(name)) {
+                  return resolve(name);
+                }
               }
             } catch {
               // Ignore parse error
@@ -238,36 +310,62 @@ export async function GET(
       });
     }
 
-    // 3. Consultar en paralelo: Padrón oficial AFIP (CuitOnline) y Central de Deudores (BCRA)
-    const [cuitOnlineName, bcraName] = await Promise.all([
-      fetchCuitOnline(cleanCuit),
+    // 3. Consultar en paralelo: Central de Deudores (BCRA Oficial) y Padrón AFIP (CuitOnline)
+    const [bcraName, cuitOnlineName] = await Promise.all([
       fetchBcraDenominacion(cleanCuit),
+      fetchCuitOnline(cleanCuit),
     ]);
 
-    const resolvedName = cuitOnlineName || bcraName;
-    if (resolvedName) {
-      return NextResponse.json({
-        valid: true,
-        cuit: cleanCuit,
-        razonSocial: resolvedName.toUpperCase(),
-        tipoPersona,
-        dni,
-        isPersonaFisica,
-        source: cuitOnlineName ? "PADRON_AFIP_OFICIAL" : "BCRA_OFICIAL",
-      });
+    let resolvedName: string | null = null;
+    let source = "DESCONOCIDO";
+
+    if (bcraName && !isInvalidRazonSocial(bcraName)) {
+      resolvedName = bcraName.trim().toUpperCase();
+      source = "BCRA_OFICIAL";
+    } else if (cuitOnlineName && !isInvalidRazonSocial(cuitOnlineName)) {
+      resolvedName = cuitOnlineName.trim().toUpperCase();
+      source = "PADRON_AFIP_OFICIAL";
+    }
+
+    if (resolvedName && !isInvalidRazonSocial(resolvedName)) {
+      return NextResponse.json(
+        {
+          valid: true,
+          cuit: cleanCuit,
+          razonSocial: resolvedName,
+          tipoPersona,
+          dni,
+          isPersonaFisica,
+          source,
+        },
+        {
+          status: 200,
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      );
     }
 
     // 4. El CUIT es matemáticamente válido en AFIP, pero sin registro en padrones públicos
-    return NextResponse.json({
-      valid: true,
-      cuit: cleanCuit,
-      razonSocial: null,
-      tipoPersona,
-      dni,
-      isPersonaFisica,
-      source: "AFIP_MODULO_11",
-      message: "CUIT válido ante AFIP.",
-    });
+    return NextResponse.json(
+      {
+        valid: true,
+        cuit: cleanCuit,
+        razonSocial: null,
+        tipoPersona,
+        dni,
+        isPersonaFisica,
+        source: "AFIP_MODULO_11",
+        message: "CUIT válido ante AFIP.",
+      },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    );
   } catch (error) {
     console.error("Error al validar CUIT:", error);
     return NextResponse.json(
@@ -275,7 +373,12 @@ export async function GET(
         valid: false,
         error: "Ocurrió un error al verificar el CUIT en el padrón.",
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
     );
   }
 }

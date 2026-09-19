@@ -1059,9 +1059,19 @@ export async function lookupCuitAfip(cuit: string): Promise<CuitLookupResult> {
   }
 
   try {
-    const res = await fetch(`/api/cuit/${clean}`);
+    const res = await fetch(`/api/cuit/${clean}?_t=${Date.now()}`, {
+      cache: "no-store",
+    });
     if (res.ok) {
       const data = await res.json();
+      if (
+        data.razonSocial &&
+        (data.razonSocial.toUpperCase().includes("JUST A MOMENT") ||
+          data.razonSocial.toUpperCase().includes("CLOUDFLARE") ||
+          data.razonSocial.toUpperCase().includes("MOMENT..."))
+      ) {
+        data.razonSocial = null;
+      }
       return data;
     }
   } catch (err) {

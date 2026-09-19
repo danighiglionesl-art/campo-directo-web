@@ -556,7 +556,13 @@ export const QuotationSection: React.FC = () => {
             setFormNuevo((prev) => (prev.dni ? prev : { ...prev, dni: result.dni! }));
           }
 
-          if (result.razonSocial) {
+          const hasJunkName =
+            !result.razonSocial ||
+            result.razonSocial.toUpperCase().includes("JUST A MOMENT") ||
+            result.razonSocial.toUpperCase().includes("CLOUDFLARE") ||
+            result.razonSocial.toUpperCase().includes("MOMENT...");
+
+          if (result.razonSocial && !hasJunkName) {
             // Razón social / Nombre oficial obtenido de AFIP (CuitOnline) / BCRA / Directorio
             const officialName = result.razonSocial.toUpperCase();
             setFormNuevo((prev) => {
