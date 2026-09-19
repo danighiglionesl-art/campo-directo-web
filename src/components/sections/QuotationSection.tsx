@@ -3048,22 +3048,18 @@ export const QuotationSection: React.FC = () => {
                           <label className="text-[11px] font-black uppercase text-slate-700">
                             NOMBRE O RAZÓN SOCIAL A FACTURAR *
                           </label>
-                          <span className="text-[9px] font-bold text-campo-green bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 inline-flex items-center gap-1">
-                            <Lock className="w-2.5 h-2.5 shrink-0" />
-                            AUTOMÁTICO (NO EDITABLE)
-                          </span>
                         </div>
                         <div className="relative">
                           <input
                             type="text"
                             readOnly
                             tabIndex={-1}
-                            placeholder="SE ASIGNA AUTOMÁTICAMENTE SEGÚN CUIT Y NOMBRE"
+                            placeholder="NOMBRE O RAZÓN SOCIAL A FACTURAR"
                             value={formNuevo.razonSocial}
-                            className={`w-full uppercase py-2 px-3 rounded-lg border text-xs font-bold transition-all cursor-not-allowed select-none ${
+                            className={`w-full uppercase py-2 px-3 rounded-lg border text-xs font-bold transition-all cursor-default select-none ${
                               formNuevo.razonSocial
                                 ? "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-black"
-                                : "bg-slate-100 border-slate-300 text-slate-400 font-semibold"
+                                : "bg-slate-50 border-slate-300 text-slate-400 font-semibold"
                             } focus:outline-none`}
                           />
                           {formNuevo.razonSocial && (
@@ -3075,16 +3071,6 @@ export const QuotationSection: React.FC = () => {
                             </div>
                           )}
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-1 font-medium">
-                          {formNuevo.razonSocial ? (
-                            <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                              <Check className="w-3 h-3 text-emerald-600 inline shrink-0" />
-                              Denominación oficial registrada vinculada al CUIT (inmodificable).
-                            </span>
-                          ) : (
-                            "Este campo se completa solo desde el padrón oficial al ingresar tu CUIT o Apellido y Nombre."
-                          )}
-                        </p>
                       </div>
                     </div>
 
