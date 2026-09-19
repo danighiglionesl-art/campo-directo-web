@@ -256,12 +256,12 @@ export const InstallClientPage: React.FC = () => {
             className="inline-block transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-campo-green focus:ring-offset-2 rounded-xl mb-6"
             aria-label="Ir a la página principal de Campo Directo"
           >
-            <div className="relative h-14 sm:h-16 w-60 mx-auto flex items-center justify-center">
+            <div className="relative h-28 sm:h-32 w-80 sm:w-96 max-w-full mx-auto flex items-center justify-center">
               <Image
                 src="/images/logo-transparent.png"
                 alt="Campo Directo"
-                width={300}
-                height={120}
+                width={600}
+                height={240}
                 priority
                 className="h-full w-auto object-contain select-none"
               />
@@ -269,7 +269,7 @@ export const InstallClientPage: React.FC = () => {
           </Link>
 
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
-            Llevá Campo Directo con vos
+            Llevá <span className="text-campo-green">Campo Directo</span> con vos
           </h1>
           <p className="mt-3 text-sm sm:text-base text-slate-600 leading-relaxed max-w-sm mx-auto">
             Accedé directamente desde tu celular agregando Campo Directo a tu pantalla de inicio.
