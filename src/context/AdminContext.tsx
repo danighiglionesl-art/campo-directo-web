@@ -122,55 +122,86 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setSession(JSON.parse(savedSession));
       }
 
-      // 2. Clientes
+      // 2. Clientes: Limpiar clientes demo anteriores
       const savedClients = localStorage.getItem("cd_admin_clients");
+      const demoClientIds = ["cli-001", "cli-002", "cli-003", "cli-004", "cli-005"];
+      const demoCuits = [
+        "30-71234567-8",
+        "30-68945231-4",
+        "33-71458923-9",
+        "33-70894512-9",
+        "30-54123789-2",
+      ];
+      const demoUsernames = ["agroperez", "lasmarias", "donesteban", "laaurora", "coopbellville"];
+
       if (savedClients) {
-        setClients(JSON.parse(savedClients));
-      }
-
-      // 3. Cotizaciones Recibidas
-      const savedRec = localStorage.getItem("cd_admin_quotations_received");
-      if (savedRec) {
-        setQuotationsReceived(JSON.parse(savedRec));
-      } else {
-        // Si el cliente ya tenía cotizaciones enviadas en su portal, sincronizarlas aquí
-        const clientSent = localStorage.getItem("cd_client_sent_quotations");
-        if (clientSent) {
-          try {
-            const parsed = JSON.parse(clientSent);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              // mezclar sin duplicar id
-              const merged = [...initialAdminQuotationsReceived];
-              parsed.forEach((c) => {
-                if (!merged.some((m) => m.numero === c.numero)) {
-                  merged.unshift({
-                    id: c.id || `sent-${Date.now()}`,
-                    numero: c.numero,
-                    fecha: c.fecha,
-                    clienteNombre: "AGROPECUARIA PEREZ S.A.",
-                    clienteCuit: "30-71234567-8",
-                    operacion: c.operacion,
-                    estado: c.estado || "EN EVALUACIÓN",
-                    establecimientoDestino: c.establecimientoDestino,
-                    formaPagoSolicitada: c.formaPago || "Transferencia Bancaria",
-                    items: c.items || [],
-                    observaciones: c.observaciones,
-                  });
-                }
-              });
-              setQuotationsReceived(merged);
-              localStorage.setItem("cd_admin_quotations_received", JSON.stringify(merged));
-            }
-          } catch (e) {
-            console.error("Error sincronizando cotizaciones de cliente:", e);
-          }
+        try {
+          const parsed = JSON.parse(savedClients);
+          const cleaned = Array.isArray(parsed)
+            ? parsed.filter(
+                (c: AdminClient) =>
+                  !demoClientIds.includes(c.id) &&
+                  !demoCuits.includes(c.cuit) &&
+                  !demoUsernames.includes((c.usuario || "").toLowerCase())
+              )
+            : [];
+          setClients(cleaned);
+          localStorage.setItem("cd_admin_clients", JSON.stringify(cleaned));
+        } catch {
+          setClients([]);
         }
+      } else {
+        setClients([]);
       }
 
-      // 4. Cotizaciones Enviadas
+      // 3. Cotizaciones Recibidas: Limpiar cotizaciones demo anteriores
+      const savedRec = localStorage.getItem("cd_admin_quotations_received");
+      const demoQuoteRecIds = ["sent-001", "sent-002", "sent-003", "sent-004"];
+      const demoQuoteRecNumbers = ["CD-2026-0842", "CD-2026-0791", "CD-2026-0914", "CD-2026-0889"];
+      if (savedRec) {
+        try {
+          const parsed = JSON.parse(savedRec);
+          const cleaned = Array.isArray(parsed)
+            ? parsed.filter(
+                (q: AdminQuotationReceived) =>
+                  !demoQuoteRecIds.includes(q.id) &&
+                  !demoQuoteRecNumbers.includes(q.numero) &&
+                  !(q.clienteCuit && demoCuits.includes(q.clienteCuit)) &&
+                  !(q.clienteId && demoClientIds.includes(q.clienteId))
+              )
+            : [];
+          setQuotationsReceived(cleaned);
+          localStorage.setItem("cd_admin_quotations_received", JSON.stringify(cleaned));
+        } catch {
+          setQuotationsReceived([]);
+        }
+      } else {
+        setQuotationsReceived([]);
+      }
+
+      // 4. Cotizaciones Enviadas: Limpiar propuestas demo anteriores
       const savedSent = localStorage.getItem("cd_admin_quotations_sent");
+      const demoQuoteSentIds = ["rec-001", "rec-002", "rec-003"];
+      const demoQuoteSentNumbers = ["PROP-9041", "PROP-8812", "PROP-9065"];
       if (savedSent) {
-        setQuotationsSent(JSON.parse(savedSent));
+        try {
+          const parsed = JSON.parse(savedSent);
+          const cleaned = Array.isArray(parsed)
+            ? parsed.filter(
+                (q: AdminQuotationSent) =>
+                  !demoQuoteSentIds.includes(q.id) &&
+                  !demoQuoteSentNumbers.includes(q.numero) &&
+                  !(q.clienteCuit && demoCuits.includes(q.clienteCuit)) &&
+                  !(q.clienteId && demoClientIds.includes(q.clienteId))
+              )
+            : [];
+          setQuotationsSent(cleaned);
+          localStorage.setItem("cd_admin_quotations_sent", JSON.stringify(cleaned));
+        } catch {
+          setQuotationsSent([]);
+        }
+      } else {
+        setQuotationsSent([]);
       }
 
       // 5. Establecimientos: Borrar los de prueba y mantener solo los cargados por el operador
@@ -180,7 +211,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const parsed = JSON.parse(savedEst);
           const demoIds = ["est-001", "est-002", "est-003", "est-004", "est-005"];
           const cleaned = Array.isArray(parsed)
-            ? parsed.filter((e: AdminEstablishment) => !demoIds.includes(e.id))
+            ? parsed.filter(
+                (e: AdminEstablishment) =>
+                  !demoIds.includes(e.id) &&
+                  !(e.clienteCuit && demoCuits.includes(e.clienteCuit)) &&
+                  !(e.clienteId && demoClientIds.includes(e.clienteId))
+              )
             : [];
           setEstablishments(cleaned);
           localStorage.setItem("cd_admin_establishments", JSON.stringify(cleaned));
@@ -196,6 +232,76 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (savedPay) {
         setPaymentMethods(JSON.parse(savedPay));
       }
+
+      // Sincronización en segundo plano con la API de datos del Servidor
+      const syncWithServer = async () => {
+        try {
+          const [recRes, sentRes, cliRes, estRes, payRes] = await Promise.allSettled([
+            fetch("/api/panel/quotations-received").then((r) => r.json()),
+            fetch("/api/panel/quotations-sent").then((r) => r.json()),
+            fetch("/api/panel/clients").then((r) => r.json()),
+            fetch("/api/panel/establishments").then((r) => r.json()),
+            fetch("/api/panel/payment-methods").then((r) => r.json()),
+          ]);
+
+          if (recRes.status === "fulfilled" && recRes.value?.success && Array.isArray(recRes.value.data)) {
+            const cleaned = recRes.value.data.filter(
+              (q: AdminQuotationReceived) =>
+                !demoQuoteRecIds.includes(q.id) &&
+                !demoQuoteRecNumbers.includes(q.numero) &&
+                !(q.clienteCuit && demoCuits.includes(q.clienteCuit)) &&
+                !(q.clienteId && demoClientIds.includes(q.clienteId))
+            );
+            setQuotationsReceived(cleaned);
+            localStorage.setItem("cd_admin_quotations_received", JSON.stringify(cleaned));
+          }
+
+          if (sentRes.status === "fulfilled" && sentRes.value?.success && Array.isArray(sentRes.value.data)) {
+            const cleaned = sentRes.value.data.filter(
+              (q: AdminQuotationSent) =>
+                !demoQuoteSentIds.includes(q.id) &&
+                !demoQuoteSentNumbers.includes(q.numero) &&
+                !(q.clienteCuit && demoCuits.includes(q.clienteCuit)) &&
+                !(q.clienteId && demoClientIds.includes(q.clienteId))
+            );
+            setQuotationsSent(cleaned);
+            localStorage.setItem("cd_admin_quotations_sent", JSON.stringify(cleaned));
+          }
+
+          if (cliRes.status === "fulfilled" && cliRes.value?.success && Array.isArray(cliRes.value.data)) {
+            const cleaned = cliRes.value.data.filter(
+              (c: AdminClient) =>
+                !demoClientIds.includes(c.id) &&
+                !demoCuits.includes(c.cuit) &&
+                !demoUsernames.includes((c.usuario || "").toLowerCase())
+            );
+            setClients(cleaned);
+            localStorage.setItem("cd_admin_clients", JSON.stringify(cleaned));
+          }
+
+          if (estRes.status === "fulfilled" && estRes.value?.success && Array.isArray(estRes.value.data)) {
+            const cleaned = estRes.value.data.filter(
+              (e: AdminEstablishment) =>
+                !demoIds.includes(e.id) &&
+                !(e.clienteCuit && demoCuits.includes(e.clienteCuit)) &&
+                !(e.clienteId && demoClientIds.includes(e.clienteId))
+            );
+            setEstablishments(cleaned);
+            localStorage.setItem("cd_admin_establishments", JSON.stringify(cleaned));
+          }
+
+          if (payRes.status === "fulfilled" && payRes.value?.success && Array.isArray(payRes.value.data)) {
+            if (payRes.value.data.length > 0) {
+              setPaymentMethods(payRes.value.data);
+              localStorage.setItem("cd_admin_payment_methods", JSON.stringify(payRes.value.data));
+            }
+          }
+        } catch (serverErr) {
+          console.warn("Sincronización con API de panel:", serverErr);
+        }
+      };
+
+      syncWithServer();
     } catch (e) {
       console.error("Error cargando datos administrativos locales:", e);
     }
@@ -269,6 +375,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return next;
     });
 
+    fetch("/api/panel/clients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newClient),
+    }).catch((e) => console.warn("Error enviando cliente a servidor:", e));
+
     return newClient;
   };
 
@@ -282,6 +394,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return next;
     });
+
+    fetch(`/api/panel/clients/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updated),
+    }).catch((e) => console.warn("Error actualizando cliente en servidor:", e));
   };
 
   const deleteClient = (id: string) => {
@@ -294,6 +412,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return next;
     });
+
+    fetch(`/api/panel/clients/${id}`, {
+      method: "DELETE",
+    }).catch((e) => console.warn("Error eliminando cliente en servidor:", e));
   };
 
   const exportClientsExcel = () => {
@@ -333,6 +455,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return next;
     });
+
+    fetch(`/api/panel/quotations-received/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estado: status }),
+    }).catch((e) => console.warn("Error actualizando estado de cotización en servidor:", e));
   };
 
   const deleteQuotationReceived = (id: string) => {
@@ -345,6 +473,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return next;
     });
+
+    fetch(`/api/panel/quotations-received/${id}`, {
+      method: "DELETE",
+    }).catch((e) => console.warn("Error eliminando cotización en servidor:", e));
   };
 
   const exportQuotationsReceivedExcel = () => {
@@ -419,6 +551,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.error("Error al sincronizar cotización con el portal del cliente:", err);
     }
 
+    fetch("/api/panel/quotations-sent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newQuotation),
+    }).catch((e) => console.warn("Error enviando propuesta a servidor:", e));
+
     return newQuotation;
   };
 
@@ -432,6 +570,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return next;
     });
+
+    fetch(`/api/panel/quotations-sent/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updated),
+    }).catch((e) => console.warn("Error actualizando propuesta en servidor:", e));
   };
 
   const deleteQuotationSent = (id: string) => {
@@ -444,6 +588,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return next;
     });
+
+    fetch(`/api/panel/quotations-sent/${id}`, {
+      method: "DELETE",
+    }).catch((e) => console.warn("Error eliminando propuesta en servidor:", e));
   };
 
   const exportQuotationsSentExcel = () => {
@@ -487,6 +635,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return next;
     });
 
+    fetch("/api/panel/establishments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newEst),
+    }).catch((e) => console.warn("Error enviando establecimiento a servidor:", e));
+
     return newEst;
   };
 
@@ -500,6 +654,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return next;
     });
+
+    fetch(`/api/panel/establishments/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updated),
+    }).catch((e) => console.warn("Error actualizando establecimiento en servidor:", e));
   };
 
   const deleteEstablishment = (id: string) => {
@@ -512,6 +672,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return next;
     });
+
+    fetch(`/api/panel/establishments/${id}`, {
+      method: "DELETE",
+    }).catch((e) => console.warn("Error eliminando establecimiento en servidor:", e));
   };
 
   const exportEstablishmentsExcel = () => {

@@ -47,6 +47,7 @@ import {
 } from "@/types/quotation";
 import { useClientAuth } from "@/context/ClientAuthContext";
 import { triggerGoogleAuth } from "@/utils/googleAuth";
+import { ClientRecoveryModal, RecoveryTab } from "@/components/portal/ClientRecoveryModal";
 import {
   allInsumos,
   allSemillas,
@@ -218,6 +219,10 @@ export const QuotationSection: React.FC = () => {
     identifier: "",
     password: "",
   });
+
+  // Modal de Recuperación de Credenciales
+  const [isRecoveryOpen, setIsRecoveryOpen] = useState(false);
+  const [recoveryInitialTab, setRecoveryInitialTab] = useState<RecoveryTab>("password");
 
   // 6.c Forma de Pago de la Operación
   const [formaPago, setFormaPago] = useState<string>("Transferencia Bancaria");
@@ -840,7 +845,7 @@ export const QuotationSection: React.FC = () => {
   };
 
   // --- NIVEL 3 - OPCIÓN B: LOGIN DE CLIENTE REGISTRADO Y PASE A NIVEL CON CLAVE ---
-  const handleLoginAndContinue = (e: React.FormEvent) => {
+  const handleLoginAndContinue = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
@@ -853,7 +858,7 @@ export const QuotationSection: React.FC = () => {
       return;
     }
 
-    const res = login(formRegistrado.identifier, formRegistrado.password);
+    const res = await login(formRegistrado.identifier, formRegistrado.password);
     if (!res.success) {
       setFormError(res.error || "ERROR AL INICIAR SESIÓN. VERIFICÁ TUS DATOS.");
     } else {
@@ -3239,9 +3244,21 @@ export const QuotationSection: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                      CUIT O CORREO ELECTRÓNICO *
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                        CUIT O CORREO ELECTRÓNICO *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRecoveryInitialTab("usuario");
+                          setIsRecoveryOpen(true);
+                        }}
+                        className="text-[11px] font-semibold text-campo-green hover:underline cursor-pointer"
+                      >
+                        ¿Olvidaste tu usuario?
+                      </button>
+                    </div>
                     <input
                       type="text"
                       required
@@ -3258,9 +3275,21 @@ export const QuotationSection: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                      CONTRASEÑA *
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                        CONTRASEÑA *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRecoveryInitialTab("password");
+                          setIsRecoveryOpen(true);
+                        }}
+                        className="text-[11px] font-semibold text-campo-green hover:underline cursor-pointer"
+                      >
+                        ¿Olvidaste tu contraseña?
+                      </button>
+                    </div>
                     <input
                       type="password"
                       required
@@ -3442,6 +3471,20 @@ export const QuotationSection: React.FC = () => {
           </div>
         </div>
       )}
+      {/* MODAL DE RECUPERACIÓN DE CREDENCIALES */}
+      <ClientRecoveryModal
+        isOpen={isRecoveryOpen}
+        onClose={() => setIsRecoveryOpen(false)}
+        initialTab={recoveryInitialTab}
+        onSuccessLoginPrefill={(identifier) => {
+          setFormRegistrado((prev) => ({ ...prev, identifier }));
+          setIsRecoveryOpen(false);
+        }}
+        onTriggerGoogleLogin={() => {
+          setIsRecoveryOpen(false);
+          handleGoogleAuth("LOGIN");
+        }}
+      />
     </section>
   );
 };

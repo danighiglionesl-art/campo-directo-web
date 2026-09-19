@@ -239,8 +239,15 @@ export const AdminEstablishmentsTab: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {filteredEstablishments.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No se encontraron establecimientos registrados con esos filtros.
+                  <td colSpan={7} className="py-12 text-center text-slate-500">
+                    {establishments.length === 0 ? (
+                      <div className="space-y-2">
+                        <p className="font-semibold text-slate-700">Aún no hay establecimientos registrados en el sistema.</p>
+                        <p className="text-xs text-slate-400">Podés dar de alta un campo con el botón &ldquo;+ Nuevo Establecimiento&rdquo; o esperar que los productores los asocien.</p>
+                      </div>
+                    ) : (
+                      "No se encontraron establecimientos registrados con esos filtros."
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -495,11 +502,15 @@ export const AdminEstablishmentsTab: React.FC = () => {
                   }}
                   className="w-full p-2 rounded-lg border border-slate-300 font-semibold text-slate-800"
                 >
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.razonSocial} (CUIT: {c.cuit})
-                    </option>
-                  ))}
+                  {clients.length === 0 ? (
+                    <option value="">(No hay productores registrados aún - creá uno primero)</option>
+                  ) : (
+                    clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.razonSocial} (CUIT: {c.cuit})
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 

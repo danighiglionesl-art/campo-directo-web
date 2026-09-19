@@ -215,62 +215,74 @@ export const AdminDashboardView: React.FC<{
             </button>
           </div>
 
-          <div className="divide-y divide-slate-100">
-            {quotationsReceived.slice(0, 4).map((q) => (
-              <div
-                key={q.id}
-                className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 rounded-xl px-2 -mx-2 transition-colors"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-xs font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded">
-                      {q.numero}
-                    </span>
-                    <span className="text-xs text-slate-500">{q.fecha}</span>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        q.operacion === "VENTA"
-                          ? "bg-purple-100 text-purple-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {q.operacion === "VENTA" ? "PRODUCTOR VENDE" : "PRODUCTOR COMPRA"}
-                    </span>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        q.estado === "NUEVA"
-                          ? "bg-amber-100 text-amber-800"
-                          : q.estado === "EN EVALUACIÓN"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-emerald-100 text-emerald-800"
-                      }`}
-                    >
-                      {q.estado}
-                    </span>
+          {quotationsReceived.length === 0 ? (
+            <div className="py-12 px-4 text-center">
+              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                <Inbox className="w-6 h-6" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-700">Sin cotizaciones recibidas</h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                Las solicitudes de cotización enviadas por productores desde la web o el portal aparecerán acá en tiempo real.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {quotationsReceived.slice(0, 4).map((q) => (
+                <div
+                  key={q.id}
+                  className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 rounded-xl px-2 -mx-2 transition-colors"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded">
+                        {q.numero}
+                      </span>
+                      <span className="text-xs text-slate-500">{q.fecha}</span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          q.operacion === "VENTA"
+                            ? "bg-purple-100 text-purple-800"
+                            : "bg-blue-100 text-blue-800"
+                        }`}
+                      >
+                        {q.operacion === "VENTA" ? "PRODUCTOR VENDE" : "PRODUCTOR COMPRA"}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          q.estado === "NUEVA"
+                            ? "bg-amber-100 text-amber-800"
+                            : q.estado === "EN EVALUACIÓN"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-emerald-100 text-emerald-800"
+                        }`}
+                      >
+                        {q.estado}
+                      </span>
+                    </div>
+
+                    <p className="text-sm font-semibold text-slate-800">
+                      {q.clienteNombre} <span className="text-xs text-slate-500 font-normal">({q.clienteCuit})</span>
+                    </p>
+
+                    <p className="text-xs text-slate-600">
+                      <strong>Ítems:</strong>{" "}
+                      {q.items?.map((it) => `${it.nombre} (${it.cantidad} ${it.unidad})`).join(", ")}
+                    </p>
                   </div>
 
-                  <p className="text-sm font-semibold text-slate-800">
-                    {q.clienteNombre} <span className="text-xs text-slate-500 font-normal">({q.clienteCuit})</span>
-                  </p>
-
-                  <p className="text-xs text-slate-600">
-                    <strong>Ítems:</strong>{" "}
-                    {q.items?.map((it) => `${it.nombre} (${it.cantidad} ${it.unidad})`).join(", ")}
-                  </p>
+                  <div className="flex items-center gap-2 self-end sm:self-center">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("cotizaciones-recibidas")}
+                      className="px-3 py-1.5 rounded-lg bg-campo-green-50 hover:bg-campo-green-100 text-campo-green-800 text-xs font-semibold border border-campo-green-200 transition-colors"
+                    >
+                      Ver Detalle
+                    </button>
+                  </div>
                 </div>
-
-                <div className="flex items-center gap-2 self-end sm:self-center">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("cotizaciones-recibidas")}
-                    className="px-3 py-1.5 rounded-lg bg-campo-green-50 hover:bg-campo-green-100 text-campo-green-800 text-xs font-semibold border border-campo-green-200 transition-colors"
-                  >
-                    Ver Detalle
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Columna Derecha (1/3): Productores Recientes & Acceso a WhatsApp */}
@@ -289,35 +301,57 @@ export const AdminDashboardView: React.FC<{
             </button>
           </div>
 
-          <div className="space-y-3">
-            {clients.slice(0, 4).map((c) => (
-              <div
-                key={c.id}
-                className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-slate-900 truncate">{c.razonSocial}</p>
-                  <p className="text-[11px] text-slate-500 truncate">
-                    {c.nombres} {c.apellidos} &bull; {c.localidad}, {c.provincia}
-                  </p>
-                </div>
-
-                {c.whatsapp && (
-                  <a
-                    href={`https://wa.me/${c.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
-                      `Hola ${c.nombres}, te contactamos desde el equipo comercial de Campo Directo.`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Enviar WhatsApp directo al productor"
-                    className="p-2 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 transition-colors flex-shrink-0"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                  </a>
-                )}
+          {clients.length === 0 ? (
+            <div className="py-8 px-3 text-center">
+              <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
+                <Users className="w-5 h-5" />
               </div>
-            ))}
-          </div>
+              <p className="text-xs font-bold text-slate-700">Sin productores registrados</p>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Creá el primer productor o esperá que se registren desde el portal.
+              </p>
+              {onOpenNewClient && (
+                <button
+                  type="button"
+                  onClick={onOpenNewClient}
+                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-campo-green-50 hover:bg-campo-green-100 text-campo-green-800 text-xs font-semibold border border-campo-green-200 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Nuevo Productor</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {clients.slice(0, 4).map((c) => (
+                <div
+                  key={c.id}
+                  className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-slate-900 truncate">{c.razonSocial}</p>
+                    <p className="text-[11px] text-slate-500 truncate">
+                      {c.nombres} {c.apellidos} &bull; {c.localidad}, {c.provincia}
+                    </p>
+                  </div>
+
+                  {c.whatsapp && (
+                    <a
+                      href={`https://wa.me/${c.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
+                        `Hola ${c.nombres}, te contactamos desde el equipo comercial de Campo Directo.`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Enviar WhatsApp directo al productor"
+                      className="p-2 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 transition-colors flex-shrink-0"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Botones de Descarga Directa Excel */}
           <div className="pt-3 border-t border-slate-100">

@@ -29,10 +29,13 @@ import {
   CreditCard,
   ChevronRight,
   Loader2,
+  Download,
 } from "lucide-react";
 import { useClientAuth, PortalTab } from "@/context/ClientAuthContext";
 import { triggerGoogleAuth } from "@/utils/googleAuth";
 import { ARGENTINE_PROVINCES } from "@/data/quotationHelper";
+import { ClientRecoveryModal, RecoveryTab } from "@/components/portal/ClientRecoveryModal";
+import { generateProposalPdf } from "@/utils/quotationPdfGenerator";
 
 export const ClientPortalModal: React.FC = () => {
   const {
@@ -60,6 +63,10 @@ export const ClientPortalModal: React.FC = () => {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  // Estados de Recuperación de Credenciales
+  const [isRecoveryOpen, setIsRecoveryOpen] = useState(false);
+  const [recoveryInitialTab, setRecoveryInitialTab] = useState<RecoveryTab>("password");
 
   // Estados locales de Mis Datos (formulario de edición)
   const [profileForm, setProfileForm] = useState(user || {
@@ -128,10 +135,10 @@ export const ClientPortalModal: React.FC = () => {
   // Si no está abierto, no renderizar nada
   if (!isPortalOpen) return null;
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
-    const res = login(loginId, loginPassword);
+    const res = await login(loginId, loginPassword);
     if (!res.success) {
       setLoginError(res.error || "Usuario o contraseña inválidos");
     }
@@ -268,9 +275,21 @@ export const ClientPortalModal: React.FC = () => {
 
                 <form onSubmit={handleLoginSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Usuario, CUIT o Correo
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Usuario, CUIT o Correo
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRecoveryInitialTab("usuario");
+                          setIsRecoveryOpen(true);
+                        }}
+                        className="text-[11px] font-semibold text-campo-green hover:underline hover:text-campo-green-600 transition-colors"
+                      >
+                        ¿Olvidaste tu usuario?
+                      </button>
+                    </div>
                     <div className="relative">
                       <input
                         type="text"
@@ -284,9 +303,21 @@ export const ClientPortalModal: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Contraseña
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Contraseña
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRecoveryInitialTab("password");
+                          setIsRecoveryOpen(true);
+                        }}
+                        className="text-[11px] font-semibold text-campo-green hover:underline hover:text-campo-green-600 transition-colors"
+                      >
+                        ¿Olvidaste tu contraseña?
+                      </button>
+                    </div>
                     <div className="relative">
                       <input
                         type={showLoginPassword ? "text" : "password"}
@@ -1255,6 +1286,42 @@ export const ClientPortalModal: React.FC = () => {
 
                         {/* Botones de Acción */}
                         <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              generateProposalPdf({
+                                id: prop.id,
+                                numero: prop.numero,
+                                fechaEmision: prop.fecha,
+                                fechaVencimiento: prop.vencimiento,
+                                clienteId: user?.id || "cli-current",
+                                clienteNombre:
+                                  user?.razonSocial ||
+                                  `${user?.apellidos || ""} ${user?.nombres || ""}`.trim() ||
+                                  "Cliente Campo Directo",
+                                clienteCuit: user?.cuit || "Sin CUIT",
+                                clienteEmail: user?.email,
+                                asunto: prop.asunto,
+                                estado: prop.estado,
+                                totalUsd: prop.totalUsd,
+                                condicionPago: prop.condicionPago,
+                                plazoEntrega: prop.plazoEntrega,
+                                items: prop.items.map((i) => ({
+                                  id: i.id,
+                                  descripcion: i.descripcion,
+                                  cantidad: i.cantidad,
+                                  precioUnitarioUsd: i.precioUnitarioUsd,
+                                  subtotalUsd: i.subtotalUsd,
+                                })),
+                                observaciones: prop.observaciones,
+                              });
+                            }}
+                            className="w-full sm:w-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            <Download className="w-3.5 h-3.5 text-campo-green" />
+                            <span>Descargar PDF Oficial</span>
+                          </button>
+
                           <a
                             href={`https://wa.me/5493585095475?text=${encodeURIComponent(
                               `Hola Campo Directo! Me comunico respecto a la Propuesta Comercial ${prop.numero} (${prop.asunto}) por U$S ${prop.totalUsd}. Quisiera avanzar con la operación.`
@@ -1294,6 +1361,21 @@ export const ClientPortalModal: React.FC = () => {
             </div>
           </>
         )}
+
+        {/* Modal Autónomo de Recuperación de Credenciales */}
+        <ClientRecoveryModal
+          isOpen={isRecoveryOpen}
+          onClose={() => setIsRecoveryOpen(false)}
+          initialTab={recoveryInitialTab}
+          onSuccessLoginPrefill={(id) => {
+            setLoginId(id);
+            setIsRecoveryOpen(false);
+          }}
+          onTriggerGoogleLogin={() => {
+            setIsRecoveryOpen(false);
+            handleGoogleLogin();
+          }}
+        />
       </div>
     </div>
   );

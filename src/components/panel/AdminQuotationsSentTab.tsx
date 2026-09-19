@@ -29,6 +29,7 @@ import {
   AdminQuotationReceived,
 } from "@/types/admin";
 import { Logo } from "@/components/ui/Logo";
+import { generateProposalPdf } from "@/utils/quotationPdfGenerator";
 
 export const AdminQuotationsSentTab: React.FC<{
   initialReplyingQuote?: AdminQuotationReceived | null;
@@ -249,7 +250,11 @@ export const AdminQuotationsSentTab: React.FC<{
   };
 
   const handlePrint = () => {
-    window.print();
+    if (selectedProposal) {
+      generateProposalPdf(selectedProposal);
+    } else {
+      window.print();
+    }
   };
 
   return (
@@ -337,8 +342,15 @@ export const AdminQuotationsSentTab: React.FC<{
             <tbody className="divide-y divide-slate-100">
               {filteredProposals.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
-                    No se encontraron propuestas comerciales emitidas.
+                  <td colSpan={8} className="py-12 text-center text-slate-500">
+                    {quotationsSent.length === 0 ? (
+                      <div className="space-y-2">
+                        <p className="font-semibold text-slate-700">Aún no se han emitido propuestas comerciales.</p>
+                        <p className="text-xs text-slate-400">Podés crear una cotización formal con el botón &ldquo;+ Nueva Cotización Comercial&rdquo;.</p>
+                      </div>
+                    ) : (
+                      "No se encontraron propuestas comerciales emitidas que coincidan con la búsqueda."
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -418,12 +430,12 @@ export const AdminQuotationsSentTab: React.FC<{
                           type="button"
                           onClick={() => {
                             setSelectedProposal(p);
-                            setShowPrintPreview(true);
+                            generateProposalPdf(p);
                           }}
-                          title="Imprimir o Guardar PDF"
+                          title="Descargar PDF Oficial"
                           className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700"
                         >
-                          <Printer className="w-3.5 h-3.5" />
+                          <Download className="w-3.5 h-3.5" />
                         </button>
 
                         <button
@@ -478,11 +490,15 @@ export const AdminQuotationsSentTab: React.FC<{
                     onChange={(e) => setFormClientId(e.target.value)}
                     className="w-full p-2.5 rounded-lg border border-slate-300 font-semibold text-slate-800"
                   >
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.razonSocial} (CUIT: {c.cuit}) &bull; {c.localidad}
-                      </option>
-                    ))}
+                    {clients.length === 0 ? (
+                      <option value="">(No hay productores registrados aún - creá uno primero)</option>
+                    ) : (
+                      clients.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.razonSocial} (CUIT: {c.cuit}) &bull; {c.localidad}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
 

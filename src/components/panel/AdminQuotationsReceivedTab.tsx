@@ -179,8 +179,15 @@ export const AdminQuotationsReceivedTab: React.FC<{
             <tbody className="divide-y divide-slate-100">
               {filteredQuotes.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No hay cotizaciones recibidas con esos filtros.
+                  <td colSpan={7} className="py-12 text-center text-slate-500">
+                    {quotationsReceived.length === 0 ? (
+                      <div className="space-y-2">
+                        <p className="font-semibold text-slate-700">No hay cotizaciones solicitadas por productores aún.</p>
+                        <p className="text-xs text-slate-400">Cuando un productor cargue un pedido de cotización en la web pública o en su portal, aparecerá automáticamente acá.</p>
+                      </div>
+                    ) : (
+                      "No hay cotizaciones recibidas con esos filtros."
+                    )}
                   </td>
                 </tr>
               ) : (

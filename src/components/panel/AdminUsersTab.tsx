@@ -212,8 +212,15 @@ export const AdminUsersTab: React.FC<{
             <tbody className="divide-y divide-slate-100">
               {filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No se encontraron productores que coincidan con la búsqueda.
+                  <td colSpan={7} className="py-12 text-center text-slate-500">
+                    {clients.length === 0 ? (
+                      <div className="space-y-2">
+                        <p className="font-semibold text-slate-700">Aún no hay productores registrados en la plataforma.</p>
+                        <p className="text-xs text-slate-400">Podés agregar el primer productor con el botón &ldquo;+ Nuevo Productor&rdquo; arriba a la derecha.</p>
+                      </div>
+                    ) : (
+                      "No se encontraron productores que coincidan con la búsqueda."
+                    )}
                   </td>
                 </tr>
               ) : (

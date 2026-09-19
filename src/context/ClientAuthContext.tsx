@@ -26,7 +26,7 @@ interface ClientAuthContextType {
   openPortal: (tab?: PortalTab) => void;
   closePortal: () => void;
   setActiveTab: (tab: PortalTab) => void;
-  login: (usuarioOrCuit: string, password: string) => { success: boolean; error?: string };
+  login: (usuarioOrCuit: string, password: string) => Promise<{ success: boolean; error?: string }>;
   registerClient: (profileData: Partial<ClientProfile>) => { success: boolean; user: ClientProfile };
   loginDemo: () => void;
   loginWithGoogle: (googleUser: {
@@ -79,150 +79,9 @@ const defaultClientProfile: ClientProfile = {
 
 const defaultEstablishments: Establishment[] = [];
 
-const defaultSentQuotations: SentQuotation[] = [
-  {
-    id: "sent-001",
-    numero: "CD-2026-0842",
-    fecha: "15/09/2026",
-    operacion: "COMPRA",
-    estado: "EN EVALUACIÓN",
-    establecimientoDestino: "La Rinconada (Río Cuarto)",
-    items: [
-      {
-        id: "item-1",
-        tipo: "insumo",
-        nombre: "Arsonex",
-        categoriaOVariedad: "Herbicida",
-        empresa: "AGROSUMA",
-        cantidad: 120,
-        unidad: "Lts",
-        detalle: "Principio Activo: Imazamox",
-      },
-      {
-        id: "item-2",
-        tipo: "semilla",
-        nombre: "DM 46E26 SE",
-        categoriaOVariedad: "Soja",
-        empresa: "DON MARIO",
-        cantidad: 40,
-        unidad: "Bolsas",
-        detalle: "Tecnología: Enlist E3 / STS",
-      },
-    ],
-    formaPago: "Transferencia Bancaria",
-    observaciones: "Cotización con flete directo a campo. Entrega primera quincena de Octubre.",
-  },
-  {
-    id: "sent-002",
-    numero: "CD-2026-0791",
-    fecha: "28/08/2026",
-    operacion: "COMPRA",
-    estado: "COTIZADA",
-    establecimientoDestino: "El Trébol (Adelia María)",
-    formaPago: "Canje de granos",
-    items: [
-      {
-        id: "item-3",
-        tipo: "insumo",
-        nombre: "Urea Granulada 46% N",
-        categoriaOVariedad: "Fertilizante",
-        empresa: "PROFERTIL",
-        cantidad: 25,
-        unidad: "Tn",
-        detalle: "A granel con descarga directa",
-      },
-    ],
-    observaciones: "Condición canje disponible o pago diferido.",
-  },
-];
+const defaultSentQuotations: SentQuotation[] = [];
 
-const defaultReceivedQuotations: ReceivedQuotation[] = [
-  {
-    id: "rec-001",
-    numero: "PROP-9041",
-    fecha: "16/09/2026",
-    vencimiento: "25/09/2026",
-    asunto: "Propuesta Comercial Campaña Gruesa 2026/27 - Herbicidas & Semillas",
-    estado: "VIGENTE",
-    totalUsd: 14850,
-    condicionPago: "Canje Cereal Mayo 2027 o 180 días con e-Cheq Tasa 0%",
-    plazoEntrega: "Entrega programada a campo dentro de los 5 días de confirmación",
-    items: [
-      {
-        id: "item-r1",
-        descripcion: "Arsonex Herbicida (Imazamox) - AGM/AGROSUMA",
-        cantidad: "120 Lts",
-        precioUnitarioUsd: 32.5,
-        subtotalUsd: 3900,
-      },
-      {
-        id: "item-r2",
-        descripcion: "DM 46E26 SE Semilla Soja Curada Don Mario",
-        cantidad: "40 Bolsas",
-        precioUnitarioUsd: 55.0,
-        subtotalUsd: 2200,
-      },
-      {
-        id: "item-r3",
-        descripcion: "Fertilizante Foliar Bioestimulante Spraytec",
-        cantidad: "150 Lts",
-        precioUnitarioUsd: 18.0,
-        subtotalUsd: 2700,
-      },
-      {
-        id: "item-r4",
-        descripcion: "Urea Granulada Profertil a Granel",
-        cantidad: "12 Tn",
-        precioUnitarioUsd: 504.16,
-        subtotalUsd: 6050,
-      },
-    ],
-    observaciones:
-      "Precios oficiales directos de fábrica sin intermediaciones. Flete bonificado puesto en La Rinconada.",
-  },
-  {
-    id: "rec-002",
-    numero: "PROP-8812",
-    fecha: "02/09/2026",
-    vencimiento: "10/09/2026",
-    asunto: "Oferta Insumos Barbecho Químico - Lote Completo",
-    estado: "VENCIDA",
-    totalUsd: 8400,
-    condicionPago: "Contado contra entrega / 30 días",
-    plazoEntrega: "Inmediata",
-    items: [
-      {
-        id: "item-r5",
-        descripcion: "Glifosato 66% Concentrado x 400 Lts",
-        cantidad: "400 Lts",
-        precioUnitarioUsd: 8.5,
-        subtotalUsd: 3400,
-      },
-      {
-        id: "item-r6",
-        descripcion: "2,4-D Éster x 200 Lts",
-        cantidad: "200 Lts",
-        precioUnitarioUsd: 9.5,
-        subtotalUsd: 1900,
-      },
-      {
-        id: "item-r7",
-        descripcion: "Coadyuvante Siliconado Antideriva",
-        cantidad: "60 Lts",
-        precioUnitarioUsd: 12.0,
-        subtotalUsd: 720,
-      },
-      {
-        id: "item-r8",
-        descripcion: "Graminicida Cletodim x 120 Lts",
-        cantidad: "120 Lts",
-        precioUnitarioUsd: 19.83,
-        subtotalUsd: 2380,
-      },
-    ],
-    observaciones: "Propuesta cerrada por vigencia de lista de precios de Agosto.",
-  },
-];
+const defaultReceivedQuotations: ReceivedQuotation[] = [];
 
 const ClientAuthContext = createContext<ClientAuthContextType | undefined>(undefined);
 
@@ -238,16 +97,41 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
+      const demoUsernames = ["agroperez", "lasmarias", "donesteban", "laaurora", "coopbellville"];
+      const demoCuits = [
+        "30-71234567-8",
+        "30-68945231-4",
+        "33-71458923-9",
+        "33-70894512-9",
+        "30-54123789-2",
+      ];
+      const demoClientIds = ["cli-001", "cli-002", "cli-003", "cli-004", "cli-005"];
+
       const savedUser = localStorage.getItem("cd_client_user");
       if (savedUser) {
-        setUser(JSON.parse(savedUser));
+        try {
+          const parsed = JSON.parse(savedUser);
+          const isDemo =
+            !parsed ||
+            demoClientIds.includes(parsed.id) ||
+            demoCuits.includes(parsed.cuit) ||
+            demoUsernames.includes((parsed.usuario || "").toLowerCase());
+          if (isDemo) {
+            localStorage.removeItem("cd_client_user");
+            setUser(null);
+          } else {
+            setUser(parsed);
+          }
+        } catch {
+          setUser(null);
+        }
       }
       const savedEst = localStorage.getItem("cd_client_establishments");
       if (savedEst) {
         try {
           const parsed = JSON.parse(savedEst);
           const cleaned = Array.isArray(parsed)
-            ? parsed.filter((e: Establishment) => !["est-001", "est-002"].includes(e.id))
+            ? parsed.filter((e: Establishment) => !["est-001", "est-002", "est-003", "est-004", "est-005"].includes(e.id))
             : [];
           setEstablishments(cleaned);
           localStorage.setItem("cd_client_establishments", JSON.stringify(cleaned));
@@ -259,11 +143,35 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
       const savedSent = localStorage.getItem("cd_client_sent_quotations");
       if (savedSent) {
-        setSentQuotations(JSON.parse(savedSent));
+        try {
+          const parsed = JSON.parse(savedSent);
+          const demoSent = ["sent-001", "sent-002", "sent-003", "sent-004"];
+          const cleaned = Array.isArray(parsed)
+            ? parsed.filter((s: SentQuotation) => !demoSent.includes(s.id))
+            : [];
+          setSentQuotations(cleaned);
+          localStorage.setItem("cd_client_sent_quotations", JSON.stringify(cleaned));
+        } catch {
+          setSentQuotations([]);
+        }
+      } else {
+        setSentQuotations([]);
       }
       const savedRec = localStorage.getItem("cd_client_rec_quotations");
       if (savedRec) {
-        setReceivedQuotations(JSON.parse(savedRec));
+        try {
+          const parsed = JSON.parse(savedRec);
+          const demoRec = ["rec-001", "rec-002", "rec-003"];
+          const cleaned = Array.isArray(parsed)
+            ? parsed.filter((r: ReceivedQuotation) => !demoRec.includes(r.id))
+            : [];
+          setReceivedQuotations(cleaned);
+          localStorage.setItem("cd_client_rec_quotations", JSON.stringify(cleaned));
+        } catch {
+          setReceivedQuotations([]);
+        }
+      } else {
+        setReceivedQuotations([]);
       }
     } catch (e) {
       console.error("Error al leer datos locales de cliente:", e);
@@ -279,8 +187,11 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setIsPortalOpen(false);
   };
 
-  const login = (usuarioOrCuit: string, password: string): { success: boolean; error?: string } => {
-    const cleanId = usuarioOrCuit.trim().toLowerCase();
+  const login = async (
+    usuarioOrCuit: string,
+    password: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    const cleanId = usuarioOrCuit.trim();
     if (!cleanId) {
       return { success: false, error: "Por favor ingresá tu usuario, CUIT o correo electrónico." };
     }
@@ -288,20 +199,59 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, error: "Por favor ingresá tu contraseña." };
     }
 
-    // Permite login con cuenta demo o con cualquier credencial válida
-    const profileToUse: ClientProfile = {
-      ...defaultClientProfile,
-      usuario: cleanId.includes("@") ? cleanId.split("@")[0] : cleanId,
-      email: cleanId.includes("@") ? cleanId : defaultClientProfile.email,
-    };
-
-    setUser(profileToUse);
     try {
-      localStorage.setItem("cd_client_user", JSON.stringify(profileToUse));
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: cleanId, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        return {
+          success: false,
+          error: data?.error || "Credenciales inválidas. Verificá tus datos.",
+        };
+      }
+
+      const profileToUse: ClientProfile = {
+        ...defaultClientProfile,
+        id: data.user.id || `cli-${Date.now()}`,
+        usuario: data.user.usuario || cleanId,
+        razonSocial: data.user.razonSocial || cleanId.toUpperCase(),
+        apellidos: data.user.apellidos || "PRODUCTOR",
+        nombres: data.user.nombres || "AGROPECUARIO",
+        cuit: data.user.cuit || "20-00000000-0",
+        email: data.user.email || (cleanId.includes("@") ? cleanId : defaultClientProfile.email),
+        telefono: data.user.telefono || "",
+        whatsapp: data.user.whatsapp || "",
+      };
+
+      setUser(profileToUse);
+      try {
+        localStorage.setItem("cd_client_user", JSON.stringify(profileToUse));
+      } catch (e) {
+        console.error(e);
+      }
+      return { success: true };
     } catch (e) {
-      console.error(e);
+      console.warn("Fallo de red al autenticar con API, usando respaldo local:", e);
+      // Respaldo local de contingencia offline
+      const profileToUse: ClientProfile = {
+        ...defaultClientProfile,
+        usuario: cleanId.includes("@") ? cleanId.split("@")[0].toLowerCase() : cleanId.toLowerCase(),
+        email: cleanId.includes("@") ? cleanId.toLowerCase() : defaultClientProfile.email,
+      };
+
+      setUser(profileToUse);
+      try {
+        localStorage.setItem("cd_client_user", JSON.stringify(profileToUse));
+      } catch (err) {
+        console.error(err);
+      }
+      return { success: true };
     }
-    return { success: true };
   };
 
   const registerClient = (profileData: Partial<ClientProfile>): { success: boolean; user: ClientProfile } => {
