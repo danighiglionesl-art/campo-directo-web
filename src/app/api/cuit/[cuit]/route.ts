@@ -52,6 +52,80 @@ const AGRO_CORPORATE_DIRECTORY: Record<string, string> = {
   "30999032083": "ADMINISTRACION FEDERAL DE INGRESOS PUBLICOS (AFIP / ARCA)",
 };
 
+// Consulta oficial al padrón público de AFIP / Constancias (CuitOnline)
+async function fetchCuitOnline(cleanCuit: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const url = `https://www.cuitonline.com/detalle/${cleanCuit}/`;
+    const options = {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+      timeout: 4500,
+    };
+
+    const extractFromHtml = (html: string): string | null => {
+      const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+      if (h1Match && !h1Match[1].includes("404") && !h1Match[1].toLowerCase().includes("error")) {
+        const cleaned = h1Match[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().toUpperCase();
+        if (cleaned && cleaned.length > 2) return cleaned;
+      }
+      const titleMatch = html.match(/<title>\s*([^(<]+)/i);
+      if (titleMatch && !titleMatch[1].includes("404") && !titleMatch[1].toLowerCase().includes("error")) {
+        const cleaned = titleMatch[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().toUpperCase();
+        if (cleaned && cleaned.length > 2) return cleaned;
+      }
+      return null;
+    };
+
+    const req = https.get(url, options, (res) => {
+      let slugFallback: string | null = null;
+      if (res.headers.location) {
+        const loc = res.headers.location;
+        const slugMatch = loc.match(/\/detalle\/\d+\/([^.]+)\.html/i);
+        if (slugMatch && slugMatch[1] && !slugMatch[1].includes("404")) {
+          slugFallback = slugMatch[1].replace(/-/g, " ").replace(/\s+/g, " ").trim().toUpperCase();
+        }
+
+        const nextUrl = loc.startsWith("http")
+          ? loc
+          : `https://www.cuitonline.com${loc.startsWith("/") ? "" : "/"}${loc}`;
+
+        const req2 = https.get(nextUrl, options, (res2) => {
+          let body = "";
+          res2.on("data", (c) => (body += c));
+          res2.on("end", () => {
+            const extracted = extractFromHtml(body);
+            if (extracted) return resolve(extracted);
+            if (slugFallback) return resolve(slugFallback);
+            resolve(null);
+          });
+        });
+        req2.on("error", () => resolve(slugFallback || null));
+        req2.on("timeout", () => {
+          req2.destroy();
+          resolve(slugFallback || null);
+        });
+        return;
+      }
+
+      let body = "";
+      res.on("data", (c) => (body += c));
+      res.on("end", () => {
+        const extracted = extractFromHtml(body);
+        resolve(extracted);
+      });
+    });
+
+    req.on("error", () => resolve(null));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(null);
+    });
+  });
+}
+
 // Consulta oficial a la Central de Deudores del Banco Central de la República Argentina (BCRA)
 async function fetchBcraDenominacion(cleanCuit: string): Promise<string | null> {
   const agent = new https.Agent({ rejectUnauthorized: false });
@@ -151,7 +225,7 @@ export async function GET(
       ? "PERSONA FÍSICA / PRODUCTOR"
       : "PERSONA JURÍDICA (EMPRESA / SOCIEDAD)";
 
-    // 2. Verificar en el directorio verificado agropecuario
+    // 2. Verificar en el directorio corporativo agropecuario
     if (AGRO_CORPORATE_DIRECTORY[cleanCuit]) {
       return NextResponse.json({
         valid: true,
@@ -164,21 +238,26 @@ export async function GET(
       });
     }
 
-    // 3. Consultar en la base de datos oficial del BCRA (Central de Deudores)
-    const bcraName = await fetchBcraDenominacion(cleanCuit);
-    if (bcraName) {
+    // 3. Consultar en paralelo: Padrón oficial AFIP (CuitOnline) y Central de Deudores (BCRA)
+    const [cuitOnlineName, bcraName] = await Promise.all([
+      fetchCuitOnline(cleanCuit),
+      fetchBcraDenominacion(cleanCuit),
+    ]);
+
+    const resolvedName = cuitOnlineName || bcraName;
+    if (resolvedName) {
       return NextResponse.json({
         valid: true,
         cuit: cleanCuit,
-        razonSocial: bcraName.toUpperCase(),
+        razonSocial: resolvedName.toUpperCase(),
         tipoPersona,
         dni,
         isPersonaFisica,
-        source: "BCRA_OFICIAL",
+        source: cuitOnlineName ? "PADRON_AFIP_OFICIAL" : "BCRA_OFICIAL",
       });
     }
 
-    // 4. El CUIT es matemáticamente válido en AFIP, pero sin registro crediticio en BCRA
+    // 4. El CUIT es matemáticamente válido en AFIP, pero sin registro en padrones públicos
     return NextResponse.json({
       valid: true,
       cuit: cleanCuit,
@@ -187,7 +266,7 @@ export async function GET(
       dni,
       isPersonaFisica,
       source: "AFIP_MODULO_11",
-      message: "CUIT válido ante AFIP. Razón Social sincronizada automáticamente.",
+      message: "CUIT válido ante AFIP.",
     });
   } catch (error) {
     console.error("Error al validar CUIT:", error);

@@ -34,6 +34,7 @@ import {
   FileCheck,
   Banknote,
   ArrowRight,
+  Lock,
 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import {
@@ -498,6 +499,7 @@ export const QuotationSection: React.FC = () => {
   };
 
   // --- PROCESO AUTOMÁTICO: CONSULTA AFIP/BCRA Y RAZÓN SOCIAL ---
+  // --- PROCESO AUTOMÁTICO: CONSULTA AFIP/BCRA Y RAZÓN SOCIAL ---
   const handleApellidosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.toUpperCase();
     setFormNuevo((prev) => {
@@ -550,23 +552,39 @@ export const QuotationSection: React.FC = () => {
           }
 
           if (result.razonSocial) {
-            // Razón social obtenida de BCRA / Directorio Corporativo
-            setFormNuevo((prev) => ({ ...prev, razonSocial: result.razonSocial!.toUpperCase() }));
+            // Razón social / Nombre oficial obtenido de AFIP (CuitOnline) / BCRA / Directorio
+            const officialName = result.razonSocial.toUpperCase();
+            setFormNuevo((prev) => {
+              const updated = {
+                ...prev,
+                razonSocial: officialName,
+              };
+              // Si es persona física y los nombres aún no se habían escrito, autocompletar apellido y nombre desde el padrón
+              if (result.isPersonaFisica) {
+                const parts = officialName.trim().split(/\s+/);
+                if (parts.length >= 2) {
+                  if (!prev.apellidos.trim()) updated.apellidos = parts[0];
+                  if (!prev.nombres.trim()) updated.nombres = parts.slice(1).join(" ");
+                } else if (parts.length === 1) {
+                  if (!prev.apellidos.trim()) updated.apellidos = parts[0];
+                }
+              }
+              return updated;
+            });
             setIsRazonSocialAuto(true);
-            setAfipSuccessMessage(`CUIT VALIDADO (${result.tipoPersona || "CONTRIBUYENTE"}): ${result.razonSocial!.toUpperCase()}`);
+            setAfipSuccessMessage(`✓ CUIT OFICIAL VALIDADO (${result.tipoPersona || "CONTRIBUYENTE"}): ${officialName}`);
           } else {
-            // Para persona física o contribuyente sin registro societario previo:
-            // La denominación legal ante AFIP es su Apellido y Nombre
+            // Si no figura en directorios públicos, la denominación oficial de una persona física es su Apellido y Nombre
             const nombreCompleto = `${formNuevo.apellidos.trim()} ${formNuevo.nombres.trim()}`.trim();
             if (nombreCompleto) {
               setFormNuevo((prev) => ({ ...prev, razonSocial: nombreCompleto.toUpperCase() }));
               setIsRazonSocialAuto(true);
-              setAfipSuccessMessage(`CUIT VALIDADO ANTE AFIP (${result.tipoPersona || "CONTRIBUYENTE"}): ${nombreCompleto.toUpperCase()}`);
+              setAfipSuccessMessage(`✓ CUIT VÁLIDO ANTE AFIP (${result.tipoPersona || "CONTRIBUYENTE"}): ${nombreCompleto.toUpperCase()}`);
             } else {
               setFormNuevo((prev) => ({ ...prev, razonSocial: "" }));
               setIsRazonSocialAuto(true);
               setAfipSuccessMessage(
-                `CUIT VÁLIDO ANTE AFIP (${result.tipoPersona || "CONTRIBUYENTE"}). Se completará automáticamente con tu Apellido y Nombre.`
+                `✓ CUIT VÁLIDO ANTE AFIP (${result.tipoPersona || "CONTRIBUYENTE"}). Se completará automáticamente con tu Apellido y Nombre.`
               );
             }
           }
@@ -952,6 +970,59 @@ export const QuotationSection: React.FC = () => {
         });
       } catch (syncErr) {
         console.error("Error sincronizando cotización con portal:", syncErr);
+      }
+
+      // Sincronizar automáticamente con el Panel de Control Administrativo (Cotizaciones Recibidas)
+      try {
+        if (typeof window !== "undefined") {
+          const rawAdminRec = localStorage.getItem("cd_admin_quotations_received");
+          let adminRecList = rawAdminRec ? JSON.parse(rawAdminRec) : [];
+          if (!Array.isArray(adminRecList)) adminRecList = [];
+
+          const randomNum = Math.floor(1000 + Math.random() * 9000);
+          const code = `CD-2026-${randomNum}`;
+          const now = new Date();
+          const formattedDate = `${now.getDate().toString().padStart(2, "0")}/${(now.getMonth() + 1)
+            .toString()
+            .padStart(2, "0")}/${now.getFullYear()}`;
+
+          const clientName = user
+            ? user.razonSocial || `${user.apellidos} ${user.nombres}`
+            : formNuevo.razonSocial || `${formNuevo.apellidos} ${formNuevo.nombres}` || "Productor Agropecuario";
+
+          const clientCuit = user ? user.cuit : formNuevo.cuit || "Sin CUIT";
+          const clientTel = user ? (user.telefono || user.whatsapp) : `${formNuevo.whatsappCountryCode || ""} ${formNuevo.whatsappNumber || ""}`.trim();
+          const clientEmail = user ? user.email : formNuevo.email;
+
+          adminRecList.unshift({
+            id: `rec-${Date.now()}`,
+            numero: code,
+            fecha: formattedDate,
+            clienteNombre: clientName,
+            clienteCuit: clientCuit,
+            clienteTelefono: clientTel,
+            clienteEmail: clientEmail,
+            operacion: operation === "VENDER" ? "VENTA" : "COMPRA",
+            estado: "NUEVA",
+            establecimientoDestino: targetEstablishmentName || "ESTABLECIMIENTO PRINCIPAL",
+            formaPagoSolicitada: paymentMethodSelected,
+            items: cartItems.map((c, idx) => ({
+              id: `item-${Date.now()}-${idx}`,
+              tipo: c.type === "INSUMOS" ? "insumo" : c.type === "SEMILLAS" ? "semilla" : "grano",
+              nombre: c.title,
+              categoriaOVariedad: c.subtitle || c.badge,
+              empresa: c.badge,
+              cantidad: typeof c.quantity === "number" ? c.quantity : parseFloat(String(c.quantity)) || 1,
+              unidad: c.unit,
+              detalle: c.details,
+            })),
+            observaciones: formNuevo.observaciones || undefined,
+          });
+
+          localStorage.setItem("cd_admin_quotations_received", JSON.stringify(adminRecList));
+        }
+      } catch (adminSyncErr) {
+        console.error("Error sincronizando con el panel de administración:", adminSyncErr);
       }
 
       setIsSubmitting(false);
@@ -2977,26 +3048,43 @@ export const QuotationSection: React.FC = () => {
                           <label className="text-[11px] font-black uppercase text-slate-700">
                             NOMBRE O RAZÓN SOCIAL A FACTURAR *
                           </label>
-                          {isRazonSocialAuto && (
-                            <span className="text-[9px] font-bold text-campo-green bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                              PROCESO AUTOMÁTICO
-                            </span>
+                          <span className="text-[9px] font-bold text-campo-green bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 inline-flex items-center gap-1">
+                            <Lock className="w-2.5 h-2.5 shrink-0" />
+                            AUTOMÁTICO (NO EDITABLE)
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            readOnly
+                            tabIndex={-1}
+                            placeholder="SE ASIGNA AUTOMÁTICAMENTE SEGÚN CUIT Y NOMBRE"
+                            value={formNuevo.razonSocial}
+                            className={`w-full uppercase py-2 px-3 rounded-lg border text-xs font-bold transition-all cursor-not-allowed select-none ${
+                              formNuevo.razonSocial
+                                ? "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-black"
+                                : "bg-slate-100 border-slate-300 text-slate-400 font-semibold"
+                            } focus:outline-none`}
+                          />
+                          {formNuevo.razonSocial && (
+                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                              <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                VALIDADO
+                              </span>
+                            </div>
                           )}
                         </div>
-                        <input
-                          type="text"
-                          required
-                          placeholder="APELLIDO Y NOMBRE O RAZÓN SOCIAL A FACTURAR"
-                          value={formNuevo.razonSocial}
-                          onChange={(e) => {
-                            setIsRazonSocialAuto(false);
-                            setFormNuevo((prev) => ({
-                              ...prev,
-                              razonSocial: e.target.value.toUpperCase(),
-                            }));
-                          }}
-                          className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold bg-slate-50 focus:bg-white focus:border-campo-green focus:outline-none"
-                        />
+                        <p className="text-[10px] text-slate-500 mt-1 font-medium">
+                          {formNuevo.razonSocial ? (
+                            <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                              <Check className="w-3 h-3 text-emerald-600 inline shrink-0" />
+                              Denominación oficial registrada vinculada al CUIT (inmodificable).
+                            </span>
+                          ) : (
+                            "Este campo se completa solo desde el padrón oficial al ingresar tu CUIT o Apellido y Nombre."
+                          )}
+                        </p>
                       </div>
                     </div>
 

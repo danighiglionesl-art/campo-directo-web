@@ -5,6 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
+      disallow: ["/panel"],
     },
     sitemap: "https://campodirecto.ar/sitemap.xml",
   };

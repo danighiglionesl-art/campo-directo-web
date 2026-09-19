@@ -13,11 +13,12 @@ interface AppShellProps {
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const pathname = usePathname();
   const isInstallPage = pathname === "/instalar";
+  const isPanelPage = pathname?.startsWith("/panel");
 
-  // En la página de instalación /instalar aislamos la interfaz para evitar menús comerciales,
-  // cotizaciones, pie de página extendido y el botón flotante de WhatsApp.
-  if (isInstallPage) {
-    return <main className="flex-grow">{children}</main>;
+  // En la página de instalación /instalar y en el panel de control /panel aislamos la interfaz
+  // para evitar menús comerciales públicos, pie de página extendido y el botón flotante de WhatsApp.
+  if (isInstallPage || isPanelPage) {
+    return <main className="flex-grow min-h-screen">{children}</main>;
   }
 
   return (

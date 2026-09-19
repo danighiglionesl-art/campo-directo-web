@@ -4,14 +4,18 @@ import Image from "next/image";
 
 interface LogoProps {
   className?: string;
-  variant?: "standard" | "3d" | "flat";
+  variant?: "standard" | "3d" | "flat" | "light";
   priority?: boolean;
+  width?: number;
+  height?: number;
 }
 
 export const Logo: React.FC<LogoProps> = ({
   className = "h-12 w-auto",
   variant = "standard",
   priority = false,
+  width = 400,
+  height = 250,
 }) => {
   // Selección del archivo de logotipo oficial provisto por el usuario
   const logoSrc =
