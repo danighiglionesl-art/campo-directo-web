@@ -2101,8 +2101,8 @@ export const QuotationSection: React.FC = () => {
               </div>
             </div>
 
-            {/* Pestañas destacadas en Verde: CLIENTE NUEVO vs ACCESO CLIENTES REGISTRADO */}
-            <div className="shrink-0 grid grid-cols-2 bg-emerald-950/10 border-b-2 border-campo-green/30 p-2 gap-2">
+            {/* Pestañas destacadas en Verde: CLIENTE NUEVO vs ACCESO CLIENTE REGISTRADO */}
+            <div className="shrink-0 grid grid-cols-2 bg-emerald-900/10 border-b-2 border-campo-green/30 p-2 gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -2111,8 +2111,8 @@ export const QuotationSection: React.FC = () => {
                 }}
                 className={`py-2.5 sm:py-3 px-3 sm:px-4 text-xs sm:text-sm font-black transition-all rounded-xl cursor-pointer flex items-center justify-center gap-2 ${
                   clientTab === "NUEVO"
-                    ? "bg-campo-green text-white shadow-md shadow-campo-green/20 border-2 border-campo-green-600"
-                    : "bg-white/90 hover:bg-white text-campo-green-950 hover:text-campo-green border border-campo-green/30"
+                    ? "bg-campo-green text-white shadow-md shadow-campo-green/30 border-2 border-campo-green-700"
+                    : "bg-emerald-100 hover:bg-emerald-200/80 text-emerald-950 font-black border-2 border-emerald-300"
                 }`}
               >
                 <span>CLIENTE NUEVO</span>
@@ -2125,11 +2125,11 @@ export const QuotationSection: React.FC = () => {
                 }}
                 className={`py-2.5 sm:py-3 px-3 sm:px-4 text-xs sm:text-sm font-black transition-all rounded-xl cursor-pointer flex items-center justify-center gap-2 ${
                   clientTab === "REGISTRADO"
-                    ? "bg-campo-green text-white shadow-md shadow-campo-green/20 border-2 border-campo-green-600"
-                    : "bg-white/90 hover:bg-white text-campo-green-950 hover:text-campo-green border border-campo-green/30"
+                    ? "bg-campo-green text-white shadow-md shadow-campo-green/30 border-2 border-campo-green-700"
+                    : "bg-emerald-100 hover:bg-emerald-200/80 text-emerald-950 font-black border-2 border-emerald-300"
                 }`}
               >
-                <span>ACCESO CLIENTES REGISTRADO</span>
+                <span>ACCESO CLIENTE REGISTRADO</span>
                 {user && (
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/25 text-white font-black border border-white/30 hidden sm:inline-block">
                     ACTIVO
@@ -3021,14 +3021,25 @@ export const QuotationSection: React.FC = () => {
                         />
                       </div>
                     </div>
+
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={handleRegisterAndContinue}
+                        className="w-full py-3.5 px-4 rounded-xl bg-campo-green hover:bg-campo-green-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-campo-green/20 uppercase cursor-pointer"
+                      >
+                        <span>CREAR CUENTA Y CONTINUAR A LA COTIZACIÓN</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : (
                 /* ========================================================================= */
-                /* CASO 3: ACCESO CLIENTES REGISTRADO (LOGIN - SIN FORMA DE PAGO NI DESTINO) */
+                /* CASO 3: ACCESO CLIENTE REGISTRADO (LOGIN - SIN FORMA DE PAGO NI DESTINO)  */
                 /* ========================================================================= */
-                <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs font-bold flex items-center gap-2">
+                <div className="bg-white p-5 sm:p-6 rounded-2xl border-2 border-campo-green/30 shadow-xs space-y-4">
+                  <div className="p-3 bg-emerald-50 border border-campo-green/30 rounded-xl text-emerald-950 text-xs font-bold flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-campo-green shrink-0" />
                     <span>INGRESÁ CON TU USUARIO/CUIT Y CONTRASEÑA PARA CONFIRMAR TU COTIZACIÓN</span>
                   </div>
@@ -3071,7 +3082,16 @@ export const QuotationSection: React.FC = () => {
                     />
                   </div>
 
-                  <div className="pt-2">
+                  <div className="pt-2 space-y-2.5">
+                    <button
+                      type="button"
+                      onClick={handleLoginAndContinue}
+                      className="w-full py-3.5 px-4 rounded-xl bg-campo-green hover:bg-campo-green-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-campo-green/20 uppercase cursor-pointer"
+                    >
+                      <span>INGRESAR A MI CUENTA Y CONTINUAR</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => handleGoogleAuth("LOGIN")}
@@ -3112,7 +3132,7 @@ export const QuotationSection: React.FC = () => {
             </div>
 
             {/* Pie Fijo con Botones Contextuales (SIEMPRE VISIBLE EN PANTALLA) */}
-            <div className="shrink-0 p-3.5 sm:p-4 border-t border-campo-green/20 bg-white shadow-lg space-y-2">
+            <div className="shrink-0 p-3.5 sm:p-4 border-t-2 border-campo-green/30 bg-[#f0f8f2] shadow-lg space-y-2">
               {formError && (
                 <div className="text-center text-xs font-bold text-red-600 bg-red-50 p-2 rounded-lg border border-red-200 flex items-center justify-center gap-1.5">
                   <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
