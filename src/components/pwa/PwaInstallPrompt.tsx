@@ -2,7 +2,17 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { Download, Share, PlusSquare, X, CheckCircle2 } from "lucide-react";
+import {
+  Download,
+  Share,
+  PlusSquare,
+  X,
+  CheckCircle2,
+  MoreVertical,
+  MoreHorizontal,
+  ExternalLink,
+  Compass,
+} from "lucide-react";
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -41,8 +51,10 @@ export const PwaInstallPrompt: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isIos, setIsIos] = useState(false);
+  const [isInAppBrowser, setIsInAppBrowser] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
   const [showIosGuide, setShowIosGuide] = useState(false);
+  const [showInAppGuide, setShowInAppGuide] = useState(false);
   const [installedSuccess, setInstalledSuccess] = useState(false);
 
   useEffect(() => {
@@ -76,18 +88,31 @@ export const PwaInstallPrompt: React.FC = () => {
       return;
     }
 
-    // 3. Detección de iOS / iPadOS Safari
+    // 3. Detección de Plataforma y Navegadores In-App (Instagram, Facebook, etc.)
     const ua = window.navigator.userAgent.toLowerCase();
     const isIosDevice =
       /iphone|ipad|ipod/.test(ua) && !(window as any).MSStream;
-    setIsIos(isIosDevice);
+    const inApp =
+      /instagram|fbav|fban|messenger|threads|tiktok|linkedin/i.test(ua);
 
-    if (isIosDevice) {
-      // En iOS Safari no hay beforeinstallprompt. Mostramos una invitación discreta tras unos segundos
+    setIsIos(isIosDevice);
+    setIsInAppBrowser(inApp);
+
+    // Si está navegando dentro del navegador integrado de Instagram o redes sociales
+    if (inApp) {
       const timer = setTimeout(() => {
         setShowPrompt(true);
-        trackPwaAnalytics("pwa_prompt_displayed", { platform: "ios" });
-      }, 4000);
+        trackPwaAnalytics("pwa_prompt_displayed", { platform: "in-app-browser" });
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+
+    // Si es iOS Safari convencional (no in-app)
+    if (isIosDevice) {
+      const timer = setTimeout(() => {
+        setShowPrompt(true);
+        trackPwaAnalytics("pwa_prompt_displayed", { platform: "ios-safari" });
+      }, 2500);
       return () => clearTimeout(timer);
     }
 
@@ -107,6 +132,7 @@ export const PwaInstallPrompt: React.FC = () => {
     const handleAppInstalled = () => {
       setShowPrompt(false);
       setShowIosGuide(false);
+      setShowInAppGuide(false);
       setInstalledSuccess(true);
       localStorage.setItem("cd_pwa_installed", "true");
       trackPwaAnalytics("pwa_install_confirmed");
@@ -124,19 +150,27 @@ export const PwaInstallPrompt: React.FC = () => {
 
   // Manejador del clic en el botón de instalación
   const handleInstallClick = async () => {
-    trackPwaAnalytics("pwa_install_click", { platform: isIos ? "ios" : "chromium" });
+    trackPwaAnalytics("pwa_install_click", {
+      platform: isInAppBrowser ? "in-app" : isIos ? "ios" : "chromium",
+    });
 
+    // Caso 1: Usuario navegando dentro de Instagram o Facebook
+    if (isInAppBrowser) {
+      setShowInAppGuide(true);
+      return;
+    }
+
+    // Caso 2: Usuario en iPhone / iPad (Safari)
     if (isIos) {
-      // En iOS abrimos la guía visual con pasos
       setShowIosGuide(true);
       return;
     }
 
+    // Caso 3: Usuario en Chrome / Edge / Android con soporte nativo
     if (!deferredPrompt) {
       return;
     }
 
-    // Disparar el prompt nativo de Android / Chrome / Edge
     await deferredPrompt.prompt();
     const choiceResult = await deferredPrompt.userChoice;
 
@@ -150,10 +184,20 @@ export const PwaInstallPrompt: React.FC = () => {
     setDeferredPrompt(null);
   };
 
+  // Abrir directamente en Chrome en dispositivos Android
+  const handleOpenExternalBrowser = () => {
+    if (typeof window === "undefined") return;
+    const currentUrl = window.location.href.replace(/^https?:\/\//, "");
+    // Intent URL de Android para abrir Google Chrome directamente
+    const intentUrl = `intent://${currentUrl}#Intent;scheme=https;package=com.android.chrome;end`;
+    window.location.href = intentUrl;
+  };
+
   // Posponer la invitación por 7 días para no incomodar al usuario
   const handleDismiss = () => {
     setShowPrompt(false);
     setShowIosGuide(false);
+    setShowInAppGuide(false);
     const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
     localStorage.setItem("cd_pwa_dismissed_until", (Date.now() + oneWeekMs).toString());
     trackPwaAnalytics("pwa_prompt_dismissed_user");
@@ -238,8 +282,109 @@ export const PwaInstallPrompt: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal / Guía Visual para usuarios de iPhone y iPad (Safari) */}
-      {showIosGuide && (
+      {/* Modal 1: Guía para usuarios que abren la web dentro de Instagram / Redes Sociales */}
+      {showInAppGuide && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 animate-in slide-in-from-bottom-10 sm:zoom-in-95">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden flex items-center justify-center p-1">
+                  <Image
+                    src="/android-chrome-192x192.png?v=3"
+                    alt="Campo Directo"
+                    width={40}
+                    height={40}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">Campo Directo</h4>
+                  <p className="text-xs text-slate-500">Instalación desde Instagram</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInAppGuide(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+              Instagram restringe la instalación directa dentro de su visor. Para instalar la aplicación:
+            </p>
+
+            <div className="space-y-3.5 bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs text-slate-700">
+              <div className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-campo-green/15 text-campo-green font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  1
+                </span>
+                <span className="flex-1">
+                  Tocá los <strong>3 puntos</strong> ({isIos ? "•••" : "⋮"}) en la esquina superior derecha de Instagram.
+                </span>
+                {isIos ? (
+                  <MoreHorizontal className="w-5 h-5 text-slate-700 shrink-0" />
+                ) : (
+                  <MoreVertical className="w-5 h-5 text-slate-700 shrink-0" />
+                )}
+              </div>
+
+              <div className="border-t border-slate-200/70" />
+
+              <div className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-campo-green/15 text-campo-green font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  2
+                </span>
+                <span className="flex-1">
+                  Seleccioná <strong>{isIos ? "Abrir en el navegador (Safari)" : "Abrir en Chrome"}</strong>.
+                </span>
+                {isIos ? (
+                  <Compass className="w-5 h-5 text-sky-600 shrink-0" />
+                ) : (
+                  <ExternalLink className="w-5 h-5 text-emerald-600 shrink-0" />
+                )}
+              </div>
+
+              <div className="border-t border-slate-200/70" />
+
+              <div className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-campo-green/15 text-campo-green font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  3
+                </span>
+                <span className="flex-1">
+                  {isIos
+                    ? "En Safari, tocá Compartir y elegí 'Añadir a pantalla de inicio'."
+                    : "En Chrome, tocá el botón 'Instalar Campo Directo'."}
+                </span>
+              </div>
+            </div>
+
+            {/* En Android ofrecemos acceso directo con intent a Chrome */}
+            {!isIos && (
+              <button
+                type="button"
+                onClick={handleOpenExternalBrowser}
+                className="w-full mt-4 py-3 px-4 inline-flex items-center justify-center gap-2 text-xs font-semibold text-white bg-campo-green hover:bg-campo-green-600 transition-colors rounded-xl shadow-xs"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Abrir en Chrome ahora</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowInAppGuide(false)}
+              className="w-full mt-2.5 py-2.5 text-xs font-medium text-slate-600 hover:text-slate-800 transition-colors rounded-xl"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Guía Visual para usuarios de iPhone y iPad en Safari estándar */}
+      {showIosGuide && !isInAppBrowser && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 animate-in slide-in-from-bottom-10 sm:zoom-in-95">
             <div className="flex items-center justify-between mb-4">
