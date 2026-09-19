@@ -30,10 +30,13 @@ import {
   ChevronRight,
   Loader2,
   Download,
+  UserPlus,
+  ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { useClientAuth, PortalTab } from "@/context/ClientAuthContext";
 import { triggerGoogleAuth } from "@/utils/googleAuth";
-import { ARGENTINE_PROVINCES } from "@/data/quotationHelper";
+import { ARGENTINE_PROVINCES, lookupCuitAfip, validateCuitModulo11 } from "@/data/quotationHelper";
 import { ClientRecoveryModal, RecoveryTab } from "@/components/portal/ClientRecoveryModal";
 import { generateProposalPdf } from "@/utils/quotationPdfGenerator";
 
@@ -49,6 +52,7 @@ export const ClientPortalModal: React.FC = () => {
     closePortal,
     setActiveTab,
     login,
+    registerClient,
     loginWithGoogle,
     logout,
     updateProfile,
@@ -57,12 +61,34 @@ export const ClientPortalModal: React.FC = () => {
     deleteEstablishment,
   } = useClientAuth();
 
+  // Modo de Autenticación: Login o Primer Ingreso (Registro)
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+
   // Estados locales de Login
   const [loginId, setLoginId] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  // Estados locales de Primer Ingreso (Registro)
+  const [regCuit, setRegCuit] = useState("");
+  const [regRazonSocial, setRegRazonSocial] = useState("");
+  const [regApellidos, setRegApellidos] = useState("");
+  const [regNombres, setRegNombres] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regWhatsapp, setRegWhatsapp] = useState("");
+  const [regProvincia, setRegProvincia] = useState("CÓRDOBA");
+  const [regLocalidad, setRegLocalidad] = useState("");
+  const [regCampo, setRegCampo] = useState("");
+  const [regUsuario, setRegUsuario] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regConfirmPassword, setRegConfirmPassword] = useState("");
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [isCuitValidating, setIsCuitValidating] = useState(false);
+  const [cuitNotice, setCuitNotice] = useState<{ success: boolean; message: string } | null>(null);
+  const [regError, setRegError] = useState("");
+  const [isRegLoading, setIsRegLoading] = useState(false);
 
   // Estados de Recuperación de Credenciales
   const [isRecoveryOpen, setIsRecoveryOpen] = useState(false);
@@ -144,6 +170,15 @@ export const ClientPortalModal: React.FC = () => {
     }
   };
 
+  // Reset al cerrar portal
+  useEffect(() => {
+    if (!isPortalOpen) {
+      setAuthMode("login");
+      setLoginError("");
+      setRegError("");
+    }
+  }, [isPortalOpen]);
+
   const handleGoogleLogin = async () => {
     try {
       setIsGoogleLoading(true);
@@ -162,6 +197,186 @@ export const ClientPortalModal: React.FC = () => {
       }
     } finally {
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handleRegCuitChange = async (val: string) => {
+    const clean = val.replace(/\D/g, "").slice(0, 11);
+    let formatted = clean;
+    if (clean.length > 2 && clean.length <= 10) {
+      formatted = `${clean.slice(0, 2)}-${clean.slice(2)}`;
+    } else if (clean.length > 10) {
+      formatted = `${clean.slice(0, 2)}-${clean.slice(2, 10)}-${clean.slice(10, 11)}`;
+    }
+    setRegCuit(formatted);
+    setCuitNotice(null);
+
+    if (clean.length === 11) {
+      if (!validateCuitModulo11(clean)) {
+        setCuitNotice({
+          success: false,
+          message: "El CUIT no pasa la verificación matemática oficial de AFIP.",
+        });
+        return;
+      }
+
+      setIsCuitValidating(true);
+      try {
+        const info = await lookupCuitAfip(clean);
+        if (info.valid && info.razonSocial) {
+          setRegRazonSocial(info.razonSocial);
+          if (info.isPersonaFisica) {
+            const parts = info.razonSocial.trim().split(" ");
+            if (parts.length >= 2) {
+              setRegApellidos(parts[0]);
+              setRegNombres(parts.slice(1).join(" "));
+            }
+          }
+          setCuitNotice({
+            success: true,
+            message: `Verificado BCRA / AFIP: ${info.razonSocial}`,
+          });
+        } else if (info.valid) {
+          setCuitNotice({
+            success: true,
+            message: "CUIT válido ante AFIP (Módulo 11).",
+          });
+        } else {
+          setCuitNotice({
+            success: false,
+            message: info.error || "No se pudo verificar el CUIT.",
+          });
+        }
+      } catch {
+        setCuitNotice({
+          success: true,
+          message: "CUIT con estructura válida.",
+        });
+      } finally {
+        setIsCuitValidating(false);
+      }
+    }
+  };
+
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegError("");
+
+    const cleanCuit = regCuit.replace(/\D/g, "");
+    if (cleanCuit.length !== 11) {
+      setRegError("Por favor ingresá un CUIT válido de 11 dígitos numéricos.");
+      return;
+    }
+    if (!validateCuitModulo11(cleanCuit)) {
+      setRegError("El CUIT ingresado no es válido según el dígito verificador oficial de AFIP.");
+      return;
+    }
+    if (!regEmail.trim() || !regEmail.includes("@")) {
+      setRegError("Por favor ingresá un correo electrónico válido.");
+      return;
+    }
+    if (!regWhatsapp.trim()) {
+      setRegError("Por favor ingresá un número de WhatsApp o teléfono de contacto.");
+      return;
+    }
+    if (!regPassword || regPassword.length < 6) {
+      setRegError("La contraseña debe contener al menos 6 caracteres.");
+      return;
+    }
+    if (regPassword !== regConfirmPassword) {
+      setRegError("Las contraseñas no coinciden.");
+      return;
+    }
+
+    const titular = (
+      regRazonSocial.trim() ||
+      `${regApellidos.trim()} ${regNombres.trim()}`.trim() ||
+      "PRODUCTOR AGROPECUARIO"
+    ).toUpperCase();
+
+    const usuarioFinal = (
+      regUsuario.trim() ||
+      regEmail.trim().split("@")[0] ||
+      `productor_${cleanCuit.slice(2, 10)}`
+    ).toLowerCase();
+
+    try {
+      setIsRegLoading(true);
+
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cuit: regCuit.trim(),
+          razonSocial: titular,
+          apellidos: regApellidos.trim().toUpperCase() || titular.split(" ")[0],
+          nombres: regNombres.trim().toUpperCase() || titular.split(" ").slice(1).join(" ") || "TITULAR",
+          email: regEmail.trim().toLowerCase(),
+          telefono: regWhatsapp.trim(),
+          whatsapp: regWhatsapp.trim(),
+          provincia: regProvincia || "CÓRDOBA",
+          localidad: regLocalidad.trim().toUpperCase() || "CENTRO",
+          campoNombre: regCampo.trim() || "CAMPO PRINCIPAL",
+          usuario: usuarioFinal,
+          password: regPassword,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setRegError(data.error || "No se pudo registrar la cuenta. Intente nuevamente.");
+        setIsRegLoading(false);
+        return;
+      }
+
+      // Iniciar sesión y sincronizar perfil en contexto local
+      registerClient({
+        id: data.user?.id || `cli-${Date.now()}`,
+        usuario: usuarioFinal,
+        razonSocial: titular,
+        apellidos: regApellidos.trim().toUpperCase() || titular.split(" ")[0],
+        nombres: regNombres.trim().toUpperCase() || titular.split(" ").slice(1).join(" ") || "TITULAR",
+        cuit: regCuit.trim(),
+        condicionIva: "Responsable Inscripto",
+        email: regEmail.trim().toLowerCase(),
+        telefono: regWhatsapp.trim(),
+        whatsapp: regWhatsapp.trim(),
+        provincia: regProvincia || "CÓRDOBA",
+        localidad: regLocalidad.trim().toUpperCase() || "CENTRO",
+        direccion: regCampo.trim() || "Tranquera de Campo",
+        actividadPrincipal: "Producción Agropecuaria",
+      });
+
+      // Añadir establecimiento inicial
+      if (regCampo.trim()) {
+        addEstablishment({
+          nombre: regCampo.trim().toUpperCase(),
+          provincia: regProvincia || "CÓRDOBA",
+          localidad: regLocalidad.trim().toUpperCase() || "CENTRO",
+          hectareas: 300,
+          actividad: "Agrícola",
+          referenciaAcceso: "Tranquera Principal",
+          coordenadasGps: "",
+          tipoDescarga: "Tranquera de campo / Silobolsa",
+          esPrincipal: true,
+        });
+      }
+
+      // Cerrar modal de clientes
+      closePortal();
+
+      // Navegar suavemente al bloque "Tu cotización"
+      setTimeout(() => {
+        const el = document.getElementById("cotizacion");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 150);
+    } catch (err: any) {
+      console.error("Error en registro:", err);
+      setRegError(err?.message || "Error al procesar el registro. Verifique su conexión.");
+    } finally {
+      setIsRegLoading(false);
     }
   };
 
@@ -216,15 +431,15 @@ export const ClientPortalModal: React.FC = () => {
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
       <div
         ref={modalRef}
-        className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[92vh] max-h-[780px] animate-in fade-in zoom-in-95 duration-200"
+        className={`relative w-full ${authMode === "register" ? "max-w-3xl" : "max-w-4xl"} bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[92vh] max-h-[820px] animate-in fade-in zoom-in-95 duration-200`}
       >
         {/* ========================================================================= */}
-        {/* VISTA 1: INICIAR SESIÓN (SI NO ESTÁ AUTENTICADO)                           */}
+        {/* VISTA 1: INICIAR SESIÓN O PRIMER INGRESO (SI NO ESTÁ AUTENTICADO)         */}
         {/* ========================================================================= */}
         {!isAuthenticated ? (
-          <div className="flex-1 flex flex-col justify-between overflow-y-auto p-6 sm:p-10">
-            {/* Header Login */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-5">
+          <div className="flex-1 flex flex-col justify-between overflow-y-auto p-5 sm:p-8">
+            {/* Header Login / Registro */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="relative w-10 h-10 shrink-0">
                   <Image
@@ -236,10 +451,20 @@ export const ClientPortalModal: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                    Acceso a <span className="text-campo-green">Clientes</span>
+                    {authMode === "login" ? (
+                      <>
+                        Acceso a <span className="text-campo-green">Clientes</span>
+                      </>
+                    ) : (
+                      <>
+                        Primer <span className="text-campo-green">Ingreso</span>
+                      </>
+                    )}
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-500 font-medium">
-                    Portal exclusivo de autogestión para productores y empresas
+                    {authMode === "login"
+                      ? "Portal exclusivo de autogestión para productores y empresas"
+                      : "Registrate en segundos para cotizar y comprar de forma directa"}
                   </p>
                 </div>
               </div>
@@ -253,166 +478,486 @@ export const ClientPortalModal: React.FC = () => {
               </button>
             </div>
 
-            {/* Formulario Login */}
-            <div className="max-w-md w-full mx-auto my-auto py-6">
-              <div className="bg-slate-50 p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-xs">
-                <div className="text-center mb-6">
-                  <div className="w-12 h-12 bg-campo-green/10 text-campo-green rounded-full flex items-center justify-center mx-auto mb-3 shadow-xs">
-                    <Lock className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900">Ingresá a tu cuenta</h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Gestioná tus datos, establecimientos y cotizaciones directas
-                  </p>
-                </div>
-
-                {loginError && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>{loginError}</span>
-                  </div>
-                )}
-
-                <form onSubmit={handleLoginSubmit} className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                        Usuario, CUIT o Correo
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRecoveryInitialTab("usuario");
-                          setIsRecoveryOpen(true);
-                        }}
-                        className="text-[11px] font-semibold text-campo-green hover:underline hover:text-campo-green-600 transition-colors"
-                      >
-                        ¿Olvidaste tu usuario?
-                      </button>
+            {authMode === "login" ? (
+              /* =================================================================== */
+              /* SUBVISTA A: FORMULARIO DE LOGIN                                     */
+              /* =================================================================== */
+              <div className="max-w-md w-full mx-auto my-auto py-5">
+                <div className="bg-slate-50 p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div className="text-center mb-6">
+                    <div className="w-12 h-12 bg-campo-green/10 text-campo-green rounded-full flex items-center justify-center mx-auto mb-3 shadow-xs">
+                      <Lock className="w-6 h-6" />
                     </div>
-                    <div className="relative">
+                    <h3 className="text-lg font-bold text-slate-900">Ingresá a tu cuenta</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Gestioná tus datos, establecimientos y cotizaciones directas
+                    </p>
+                  </div>
+
+                  {loginError && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{loginError}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleLoginSubmit} className="space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Usuario, CUIT o Correo
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRecoveryInitialTab("usuario");
+                            setIsRecoveryOpen(true);
+                          }}
+                          className="text-[11px] font-semibold text-campo-green hover:underline hover:text-campo-green-600 transition-colors"
+                        >
+                          ¿Olvidaste tu usuario?
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={loginId}
+                          onChange={(e) => setLoginId(e.target.value)}
+                          placeholder="Ej: agroperez o 20-33445566-7"
+                          className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                        />
+                        <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Contraseña
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRecoveryInitialTab("password");
+                            setIsRecoveryOpen(true);
+                          }}
+                          className="text-[11px] font-semibold text-campo-green hover:underline hover:text-campo-green-600 transition-colors"
+                        >
+                          ¿Olvidaste tu contraseña?
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showLoginPassword ? "text" : "password"}
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                        />
+                        <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword(!showLoginPassword)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                          title={showLoginPassword ? "Ocultar" : "Mostrar"}
+                        >
+                          {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-3 px-4 bg-campo-green hover:bg-campo-green-600 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 mt-2 cursor-pointer"
+                    >
+                      <span>INGRESAR A MI CUENTA</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+
+                    {/* Botón Primer Ingreso (Rectángulo exactamente igual debajo) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode("register");
+                        setLoginError("");
+                        setRegError("");
+                      }}
+                      className="w-full py-3 px-4 bg-white hover:bg-emerald-50 text-campo-green hover:text-campo-green-700 border-2 border-campo-green hover:border-campo-green-600 text-sm font-bold rounded-xl shadow-2xs hover:shadow-xs transition-all duration-200 flex items-center justify-center gap-2 mt-2.5 uppercase tracking-wider cursor-pointer"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>PRIMER INGRESO</span>
+                    </button>
+                  </form>
+
+                  <div className="relative my-4 text-center">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-200" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-slate-50 px-2 text-slate-400 font-bold">O también</span>
+                    </div>
+                  </div>
+
+                  {/* Botón Continuar con Google */}
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    disabled={isGoogleLoading}
+                    className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-2.5 uppercase disabled:opacity-50"
+                  >
+                    {isGoogleLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-campo-green" />
+                    ) : (
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                        />
+                      </svg>
+                    )}
+                    <span>
+                      {isGoogleLoading
+                        ? "CONECTANDO CON GOOGLE..."
+                        : "CONTINUAR CON GOOGLE"}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* =================================================================== */
+              /* SUBVISTA B: REGISTRO PRIMER INGRESO                                 */
+              /* =================================================================== */
+              <div className="max-w-2xl w-full mx-auto my-auto py-3">
+                <div className="bg-slate-50 p-5 sm:p-7 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div className="text-center mb-5">
+                    <div className="w-12 h-12 bg-campo-green/10 text-campo-green rounded-full flex items-center justify-center mx-auto mb-2.5 shadow-xs">
+                      <UserPlus className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-bold text-slate-900">
+                      Registro de Cliente · Primer Ingreso
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 max-w-lg mx-auto">
+                      Completá tus datos una sola vez. Al registrarte quedarás autenticado y continuarás directo al bloque Tu Cotización.
+                    </p>
+                  </div>
+
+                  {regError && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{regError}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
+                    {/* CUIT con validación oficial BCRA / AFIP */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          CUIT (Validación oficial BCRA / AFIP) *
+                        </label>
+                        {isCuitValidating && (
+                          <span className="text-[11px] font-semibold text-campo-green flex items-center gap-1">
+                            <Loader2 className="w-3 h-3 animate-spin" /> Verificando CUIT...
+                          </span>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={regCuit}
+                          onChange={(e) => handleRegCuitChange(e.target.value)}
+                          placeholder="Ej: 20-33445566-7"
+                          maxLength={13}
+                          required
+                          className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                        />
+                        <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      </div>
+                      {cuitNotice && (
+                        <div
+                          className={`mt-1.5 p-2 rounded-lg text-xs font-medium flex items-center gap-1.5 ${
+                            cuitNotice.success
+                              ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                              : "bg-red-50 border border-red-200 text-red-700"
+                          }`}
+                        >
+                          {cuitNotice.success ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+                          ) : (
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-600" />
+                          )}
+                          <span>{cuitNotice.message}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Razón Social o Titular */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        Razón Social o Titular de la Explotación *
+                      </label>
                       <input
                         type="text"
-                        value={loginId}
-                        onChange={(e) => setLoginId(e.target.value)}
-                        placeholder="Ej: agroperez o 20-33445566-7"
-                        className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                        value={regRazonSocial}
+                        onChange={(e) => setRegRazonSocial(e.target.value.toUpperCase())}
+                        placeholder="Ej: AGROPECUARIA LOS MOLLES S.A. o DANIEL PÉREZ"
+                        required
+                        className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all uppercase"
                       />
-                      <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     </div>
-                  </div>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                        Contraseña
-                      </label>
+                    {/* Apellidos y Nombres */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Apellidos *
+                        </label>
+                        <input
+                          type="text"
+                          value={regApellidos}
+                          onChange={(e) => setRegApellidos(e.target.value.toUpperCase())}
+                          placeholder="PÉREZ"
+                          required
+                          className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all uppercase"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Nombres *
+                        </label>
+                        <input
+                          type="text"
+                          value={regNombres}
+                          onChange={(e) => setRegNombres(e.target.value.toUpperCase())}
+                          placeholder="JUAN CARLOS"
+                          required
+                          className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all uppercase"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Email y WhatsApp */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Correo Electrónico *
+                        </label>
+                        <input
+                          type="email"
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                          placeholder="productor@campo.com"
+                          required
+                          className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          WhatsApp / Teléfono *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="tel"
+                            value={regWhatsapp}
+                            onChange={(e) => setRegWhatsapp(e.target.value)}
+                            placeholder="Ej: 358 4123456"
+                            required
+                            className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                          />
+                          <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Provincia, Localidad y Campo */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Provincia *
+                        </label>
+                        <select
+                          value={regProvincia}
+                          onChange={(e) => setRegProvincia(e.target.value)}
+                          className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                        >
+                          {ARGENTINE_PROVINCES.map((prov) => (
+                            <option key={prov} value={prov}>
+                              {prov}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Localidad *
+                        </label>
+                        <input
+                          type="text"
+                          value={regLocalidad}
+                          onChange={(e) => setRegLocalidad(e.target.value.toUpperCase())}
+                          placeholder="Ej: RÍO CUARTO"
+                          required
+                          className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all uppercase"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Campo / Establecimiento
+                        </label>
+                        <input
+                          type="text"
+                          value={regCampo}
+                          onChange={(e) => setRegCampo(e.target.value.toUpperCase())}
+                          placeholder="Ej: LA JUANITA"
+                          className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all uppercase"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Credenciales de Acceso */}
+                    <div className="p-3.5 bg-white rounded-xl border border-slate-200/90 space-y-2.5">
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                        <Lock className="w-3.5 h-3.5 text-campo-green" />
+                        <span>Tus Credenciales de Acceso para futuros ingresos</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                            Usuario
+                          </label>
+                          <input
+                            type="text"
+                            value={regUsuario}
+                            onChange={(e) => setRegUsuario(e.target.value.toLowerCase().replace(/\s+/g, ""))}
+                            placeholder="Ej: agroperez"
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all lowercase"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                            Contraseña *
+                          </label>
+                          <input
+                            type={showRegPassword ? "text" : "password"}
+                            value={regPassword}
+                            onChange={(e) => setRegPassword(e.target.value)}
+                            placeholder="Mínimo 6 carac."
+                            required
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                          />
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                              Confirmar *
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setShowRegPassword(!showRegPassword)}
+                              className="text-[10px] text-slate-400 hover:text-slate-600"
+                            >
+                              {showRegPassword ? "Ocultar" : "Ver"}
+                            </button>
+                          </div>
+                          <input
+                            type={showRegPassword ? "text" : "password"}
+                            value={regConfirmPassword}
+                            onChange={(e) => setRegConfirmPassword(e.target.value)}
+                            placeholder="Repetir contraseña"
+                            required
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Botón Enviar Registro */}
+                    <button
+                      type="submit"
+                      disabled={isRegLoading}
+                      className="w-full py-3.5 px-4 bg-campo-green hover:bg-campo-green-600 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer disabled:opacity-50"
+                    >
+                      {isRegLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>REGISTRANDO CUENTA...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>CREAR MI CUENTA Y CONTINUAR A COTIZAR</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+
+                    <div className="text-center pt-1">
                       <button
                         type="button"
                         onClick={() => {
-                          setRecoveryInitialTab("password");
-                          setIsRecoveryOpen(true);
+                          setAuthMode("login");
+                          setRegError("");
                         }}
-                        className="text-[11px] font-semibold text-campo-green hover:underline hover:text-campo-green-600 transition-colors"
+                        className="text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
                       >
-                        ¿Olvidaste tu contraseña?
+                        ¿Ya tenés cuenta creada?{" "}
+                        <span className="text-campo-green font-bold hover:underline">
+                          Ingresá a tu cuenta aquí
+                        </span>
                       </button>
                     </div>
-                    <div className="relative">
-                      <input
-                        type={showLoginPassword ? "text" : "password"}
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
-                      />
-                      <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      <button
-                        type="button"
-                        onClick={() => setShowLoginPassword(!showLoginPassword)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                        title={showLoginPassword ? "Ocultar" : "Mostrar"}
-                      >
-                        {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full py-3 px-4 bg-campo-green hover:bg-campo-green-600 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 mt-2"
-                  >
-                    <span>INGRESAR A MI CUENTA</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </form>
-
-                <div className="relative my-4 text-center">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-200" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-slate-50 px-2 text-slate-400 font-bold">O también</span>
-                  </div>
+                  </form>
                 </div>
-
-                {/* Botón Continuar con Google */}
-                <button
-                  type="button"
-                  onClick={handleGoogleLogin}
-                  disabled={isGoogleLoading}
-                  className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-2.5 uppercase disabled:opacity-50"
-                >
-                  {isGoogleLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-campo-green" />
-                  ) : (
-                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                      <path
-                        fill="#4285F4"
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                      />
-                      <path
-                        fill="#EA4335"
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                      />
-                    </svg>
-                  )}
-                  <span>
-                    {isGoogleLoading
-                      ? "CONECTANDO CON GOOGLE..."
-                      : "CONTINUAR CON GOOGLE"}
-                  </span>
-                </button>
               </div>
-            </div>
+            )}
 
-            {/* Footer Login */}
-            <div className="text-center text-xs text-slate-500 pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2">
+            {/* Footer Login / Registro */}
+            <div className="text-center text-xs text-slate-500 pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0">
               <span className="flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-campo-green" />
                 Conexión encriptada y protegida de Campo Directo
               </span>
               <span>
-                ¿Necesitás una cuenta?{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    closePortal();
-                    const el = document.getElementById("cotizacion");
-                    if (el) el.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className="font-bold text-campo-green hover:underline"
-                >
-                  Solicitá tu cotización aquí
-                </button>
+                {authMode === "login" ? (
+                  <>
+                    ¿Primer ingreso?{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode("register");
+                        setLoginError("");
+                      }}
+                      className="font-bold text-campo-green hover:underline cursor-pointer"
+                    >
+                      Registrate aquí
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    ¿Ya estás registrado?{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode("login");
+                        setRegError("");
+                      }}
+                      className="font-bold text-campo-green hover:underline cursor-pointer"
+                    >
+                      Iniciá sesión aquí
+                    </button>
+                  </>
+                )}
               </span>
             </div>
           </div>

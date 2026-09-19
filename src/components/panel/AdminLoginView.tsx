@@ -2,9 +2,9 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Lock, User, Eye, EyeOff, ShieldCheck, AlertCircle, ArrowRight, ArrowLeft } from "lucide-react";
 import { useAdmin } from "@/context/AdminContext";
-import { Logo } from "@/components/ui/Logo";
 
 export const AdminLoginView: React.FC = () => {
   const { login } = useAdmin();
@@ -34,31 +34,29 @@ export const AdminLoginView: React.FC = () => {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] h-[480px] bg-campo-green-600/15 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative w-full max-w-md">
-        {/* Botón destacado: Regresar a Campo Directo */}
-        <div className="mb-6 flex justify-center">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 text-slate-200 hover:text-white text-xs font-semibold backdrop-blur-md border border-white/15 shadow-lg transition-all active:scale-95 group"
-            title="Volver a la página principal de Campo Directo"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 text-campo-green-400 group-hover:-translate-x-0.5 transition-transform" />
-            <span>Regresar a Campo Directo</span>
-          </Link>
-        </div>
+        {/* Encabezado: Logo de Campo Directo centrado en PNG */}
+        <div className="flex flex-col items-center justify-center text-center mb-8">
+          <div className="flex items-center justify-center mb-5">
+            <Image
+              src="/images/logo-transparent.png"
+              alt="Campo Directo"
+              width={360}
+              height={120}
+              priority
+              className="h-16 sm:h-20 w-auto object-contain filter drop-shadow-lg select-none"
+            />
+          </div>
 
-        {/* Encabezado con Logo Agrandado */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-4 sm:p-5 rounded-3xl bg-white/10 backdrop-blur-md border border-white/15 shadow-2xl mb-4">
-            <Logo variant="standard" className="h-16 sm:h-20 w-auto filter drop-shadow-md" priority />
+          {/* Acceso Panel de Control centrado */}
+          <div className="inline-flex items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-campo-green-500/20 text-campo-green-300 text-xs font-semibold uppercase tracking-wider mb-3 border border-campo-green-500/30 shadow-sm mx-auto">
+            <ShieldCheck className="w-4 h-4 text-campo-green-400" />
+            <span>Acceso Panel de Control</span>
           </div>
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-campo-green-500/20 text-campo-green-300 text-xs font-semibold uppercase tracking-wider mb-2 border border-campo-green-500/30">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Acceso Panel de Control
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white text-center">
             Panel de Control
           </h1>
-          <p className="text-sm text-slate-300 mt-1.5">
+          <p className="text-sm text-slate-300 mt-1.5 text-center max-w-sm mx-auto">
             Gestión de operaciones, cotizaciones y acceso a fábricas aliadas
           </p>
         </div>
@@ -129,20 +127,34 @@ export const AdminLoginView: React.FC = () => {
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full mt-2 py-3 px-4 rounded-xl bg-campo-green-600 hover:bg-campo-green-500 text-white font-semibold text-sm shadow-lg shadow-campo-green-900/30 flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-70 cursor-pointer"
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <span>Ingresar al Panel</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
+            {/* Acciones principales con igual jerarquía visual */}
+            <div className="space-y-3 pt-2">
+              {/* Botón 1: Ingresar al Panel */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3.5 px-4 rounded-xl bg-campo-green-600 hover:bg-campo-green-500 text-white font-semibold text-sm shadow-lg shadow-campo-green-900/30 flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-70 cursor-pointer"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <span>Ingresar al Panel</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+
+              {/* Botón 2: Regresar a Campo Directo (debajo y con la misma jerarquía de botón principal) */}
+              <Link
+                href="/"
+                className="w-full py-3.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700/90 text-white font-semibold text-sm border border-slate-600/80 hover:border-slate-500 shadow-md flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer group"
+                title="Regresar a la página principal de Campo Directo"
+              >
+                <ArrowLeft className="w-4 h-4 text-campo-green-400 group-hover:-translate-x-1 transition-transform" />
+                <span>Regresar a Campo Directo</span>
+              </Link>
+            </div>
           </form>
         </div>
 

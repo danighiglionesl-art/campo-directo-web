@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   X,
   Building2,
-  Trash2,
 } from "lucide-react";
 import { useAdmin } from "@/context/AdminContext";
 import { AdminTab } from "@/types/admin";
@@ -29,7 +28,6 @@ export const AdminNavigation: React.FC = () => {
     setSearchQuery,
     session,
     logout,
-    clearAllData,
     clients,
     quotationsReceived,
     quotationsSent,
@@ -161,20 +159,6 @@ export const AdminNavigation: React.FC = () => {
                 </span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm("¿Confirmás vaciar y limpiar todos los datos de prueba del panel para iniciar en blanco?")) {
-                    clearAllData();
-                    alert("¡Panel de control vaciado con éxito! Ahora está 100% limpio y listo para operar.");
-                  }
-                }}
-                title="Limpiar datos de prueba"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-amber-800 bg-slate-100 hover:bg-amber-100/80 border border-slate-200 hover:border-amber-300 transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-amber-600" />
-                <span className="hidden md:inline">Limpiar Demo</span>
-              </button>
 
               <button
                 type="button"
