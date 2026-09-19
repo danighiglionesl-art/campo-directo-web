@@ -556,15 +556,18 @@ export const QuotationSection: React.FC = () => {
             setFormNuevo((prev) => (prev.dni ? prev : { ...prev, dni: result.dni! }));
           }
 
-          const hasJunkName =
-            !result.razonSocial ||
-            result.razonSocial.toUpperCase().includes("JUST A MOMENT") ||
-            result.razonSocial.toUpperCase().includes("CLOUDFLARE") ||
-            result.razonSocial.toUpperCase().includes("MOMENT...");
+          const isCleanOfficialName =
+            Boolean(result.razonSocial) &&
+            typeof result.razonSocial === "string" &&
+            result.razonSocial.trim().length >= 3 &&
+            !/moment|just\s+a|cloudflare|challenge|turnstile|captcha|ray\s*id|attention|security|error/i.test(
+              result.razonSocial
+            ) &&
+            /^[A-ZÁÉÍÓÚÑa-záéíóúñ0-9\s.,&'()-]+$/.test(result.razonSocial.trim());
 
-          if (result.razonSocial && !hasJunkName) {
-            // Razón social / Nombre oficial obtenido de AFIP (CuitOnline) / BCRA / Directorio
-            const officialName = result.razonSocial.toUpperCase();
+          if (isCleanOfficialName) {
+            // Razón social / Nombre oficial obtenido de AFIP / BCRA / Directorio
+            const officialName = result.razonSocial!.trim().toUpperCase();
             setFormNuevo((prev) => {
               const updated = {
                 ...prev,

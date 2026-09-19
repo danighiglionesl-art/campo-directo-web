@@ -1066,9 +1066,8 @@ export async function lookupCuitAfip(cuit: string): Promise<CuitLookupResult> {
       const data = await res.json();
       if (
         data.razonSocial &&
-        (data.razonSocial.toUpperCase().includes("JUST A MOMENT") ||
-          data.razonSocial.toUpperCase().includes("CLOUDFLARE") ||
-          data.razonSocial.toUpperCase().includes("MOMENT..."))
+        (/moment|just\s+a|cloudflare|challenge|turnstile|captcha|error/i.test(data.razonSocial) ||
+          !/^[A-ZÁÉÍÓÚÑa-záéíóúñ0-9\s.,&'()-]+$/.test(String(data.razonSocial).trim()))
       ) {
         data.razonSocial = null;
       }

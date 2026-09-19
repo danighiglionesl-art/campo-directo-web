@@ -52,147 +52,23 @@ const AGRO_CORPORATE_DIRECTORY: Record<string, string> = {
   "30999032083": "ADMINISTRACION FEDERAL DE INGRESOS PUBLICOS (AFIP / ARCA)",
 };
 
-// Validación estricta para evitar cadenas basura, desafíos de Cloudflare y páginas de bloqueo
-function isInvalidRazonSocial(name: string | null | undefined): boolean {
-  if (!name) return true;
-  const clean = name.trim().toUpperCase();
-  if (clean.length < 3) return true;
+// Validación estricta: sólo acepta nombres reales de personas o empresas
+function isValidTaxpayerName(name: string | null | undefined): boolean {
+  if (!name || typeof name !== "string") return false;
+  const clean = name.trim();
+  if (clean.length < 3 || clean.length > 90) return false;
 
-  const blockedPhrases = [
-    "JUST A MOMENT",
-    "MOMENT...",
-    "CLOUDFLARE",
-    "ATTENTION REQUIRED",
-    "SECURITY CHECK",
-    "ACCESS DENIED",
-    "BOT DETECTION",
-    "CHECKING YOUR BROWSER",
-    "PLEASE WAIT",
-    "TURNSTILE",
-    "CAPTCHA",
-    "RAY ID",
-    "DDOS",
-    "CHALLENGE",
-    "VERIFY YOU ARE HUMAN",
-    "ERROR",
-    "404",
-    "403",
-    "500",
-    "502",
-    "503",
-    "NOT FOUND",
-    "FORBIDDEN",
-    "UNAUTHORIZED",
-    "CUIT ONLINE",
-    "CUITONLINE",
-    "CONSTANCIA DE CUIT",
-    "PADRON",
-    "DETALLE",
-    "INICIO",
-    "BUSCADOR",
-  ];
+  // Rechazo de retos antibot, páginas de error o desafíos web
+  if (
+    /moment|just\s+a|cloudflare|challenge|turnstile|captcha|ray\s*id|attention|security|access\s*denied|forbidden|404|403|500|502|error|<|>|\/|\\|{|}|\[|\]|www\.|http|html|script/i.test(
+      clean
+    )
+  ) {
+    return false;
+  }
 
-  return blockedPhrases.some((phrase) => clean.includes(phrase));
-}
-
-// Consulta oficial al padrón público de AFIP / Constancias (CuitOnline) con protección antibot
-async function fetchCuitOnline(cleanCuit: string): Promise<string | null> {
-  return new Promise((resolve) => {
-    const url = `https://www.cuitonline.com/detalle/${cleanCuit}/`;
-    const options = {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      },
-      timeout: 4500,
-    };
-
-    const extractFromHtml = (html: string): string | null => {
-      if (
-        !html ||
-        html.includes("Just a moment...") ||
-        html.includes("challenges.cloudflare.com") ||
-        html.includes("Attention Required! | Cloudflare")
-      ) {
-        return null;
-      }
-
-      // 1. Título oficial en CuitOnline: "NOMBRE APELLIDO (XX-XXXXXXXX-X)... - Cuit Online"
-      const titleMatch = html.match(/<title>\s*([^(<]+)\s*\(/i);
-      if (titleMatch && titleMatch[1]) {
-        const cleaned = titleMatch[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().toUpperCase();
-        if (!isInvalidRazonSocial(cleaned)) return cleaned;
-      }
-
-      // 2. Encabezado principal H1
-      const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-      if (h1Match && h1Match[1]) {
-        const cleaned = h1Match[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().toUpperCase();
-        if (!isInvalidRazonSocial(cleaned)) return cleaned;
-      }
-
-      return null;
-    };
-
-    const req = https.get(url, options, (res) => {
-      let slugFallback: string | null = null;
-      if (res.headers.location) {
-        const loc = res.headers.location;
-        const slugMatch = loc.match(/\/detalle\/\d+\/([^.]+)\.html/i);
-        if (slugMatch && slugMatch[1] && !slugMatch[1].includes("404")) {
-          const rawSlug = slugMatch[1].replace(/-/g, " ").replace(/\s+/g, " ").trim().toUpperCase();
-          if (!isInvalidRazonSocial(rawSlug)) {
-            slugFallback = rawSlug;
-          }
-        }
-
-        const nextUrl = loc.startsWith("http")
-          ? loc
-          : `https://www.cuitonline.com${loc.startsWith("/") ? "" : "/"}${loc}`;
-
-        const req2 = https.get(nextUrl, options, (res2) => {
-          if (res2.statusCode !== 200) {
-            return resolve(slugFallback || null);
-          }
-          let body = "";
-          res2.on("data", (c) => (body += c));
-          res2.on("end", () => {
-            const extracted = extractFromHtml(body);
-            if (extracted && !isInvalidRazonSocial(extracted)) {
-              return resolve(extracted);
-            }
-            if (slugFallback && !isInvalidRazonSocial(slugFallback)) {
-              return resolve(slugFallback);
-            }
-            resolve(null);
-          });
-        });
-        req2.on("error", () => resolve(slugFallback || null));
-        req2.on("timeout", () => {
-          req2.destroy();
-          resolve(slugFallback || null);
-        });
-        return;
-      }
-
-      let body = "";
-      res.on("data", (c) => (body += c));
-      res.on("end", () => {
-        const extracted = extractFromHtml(body);
-        if (extracted && !isInvalidRazonSocial(extracted)) {
-          return resolve(extracted);
-        }
-        resolve(null);
-      });
-    });
-
-    req.on("error", () => resolve(null));
-    req.on("timeout", () => {
-      req.destroy();
-      resolve(null);
-    });
-  });
+  // Caracteres permitidos: letras con o sin tilde, números, espacios y signos comunes en nombres/sociedades
+  return /^[A-ZÁÉÍÓÚÑa-záéíóúñ0-9\s.,&'()-]+$/.test(clean);
 }
 
 // Consulta oficial a la Central de Deudores del Banco Central de la República Argentina (BCRA)
@@ -222,7 +98,7 @@ async function fetchBcraDenominacion(cleanCuit: string): Promise<string | null> 
               const json = JSON.parse(data);
               if (json.results && json.results.denominacion) {
                 const name = String(json.results.denominacion).trim();
-                if (!isInvalidRazonSocial(name)) {
+                if (isValidTaxpayerName(name)) {
                   return resolve(name);
                 }
               }
@@ -248,11 +124,15 @@ async function fetchBcraDenominacion(cleanCuit: string): Promise<string | null> 
   if (denominacionActual) return denominacionActual;
 
   // 2. Probar endpoint de deudas históricas
-  const denominacionHistorica = await queryEndpoint(`/centraldedeudores/v1.0/Deudas/Historicas/${cleanCuit}`);
+  const denominacionHistorica = await queryEndpoint(
+    `/centraldedeudores/v1.0/Deudas/Historicas/${cleanCuit}`
+  );
   if (denominacionHistorica) return denominacionHistorica;
 
   // 3. Probar endpoint de cheques rechazados
-  const denominacionCheques = await queryEndpoint(`/centraldedeudores/v1.0/Deudas/ChequesRechazados/${cleanCuit}`);
+  const denominacionCheques = await queryEndpoint(
+    `/centraldedeudores/v1.0/Deudas/ChequesRechazados/${cleanCuit}`
+  );
   if (denominacionCheques) return denominacionCheques;
 
   return null;
@@ -273,7 +153,12 @@ export async function GET(
           valid: false,
           error: "El CUIT debe contener exactamente 11 dígitos numéricos.",
         },
-        { status: 200 }
+        {
+          status: 200,
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
       );
     }
 
@@ -285,7 +170,12 @@ export async function GET(
           valid: false,
           error: "El CUIT ingresado no es válido. No coincide con el dígito verificador oficial de AFIP.",
         },
-        { status: 200 }
+        {
+          status: 200,
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
       );
     }
 
@@ -297,46 +187,17 @@ export async function GET(
       ? "PERSONA FÍSICA / PRODUCTOR"
       : "PERSONA JURÍDICA (EMPRESA / SOCIEDAD)";
 
-    // 2. Verificar en el directorio corporativo agropecuario
+    // 2. Directorio local verificado
     if (AGRO_CORPORATE_DIRECTORY[cleanCuit]) {
-      return NextResponse.json({
-        valid: true,
-        cuit: cleanCuit,
-        razonSocial: AGRO_CORPORATE_DIRECTORY[cleanCuit],
-        tipoPersona,
-        dni,
-        isPersonaFisica,
-        source: "DIRECTORIO_AGRO",
-      });
-    }
-
-    // 3. Consultar en paralelo: Central de Deudores (BCRA Oficial) y Padrón AFIP (CuitOnline)
-    const [bcraName, cuitOnlineName] = await Promise.all([
-      fetchBcraDenominacion(cleanCuit),
-      fetchCuitOnline(cleanCuit),
-    ]);
-
-    let resolvedName: string | null = null;
-    let source = "DESCONOCIDO";
-
-    if (bcraName && !isInvalidRazonSocial(bcraName)) {
-      resolvedName = bcraName.trim().toUpperCase();
-      source = "BCRA_OFICIAL";
-    } else if (cuitOnlineName && !isInvalidRazonSocial(cuitOnlineName)) {
-      resolvedName = cuitOnlineName.trim().toUpperCase();
-      source = "PADRON_AFIP_OFICIAL";
-    }
-
-    if (resolvedName && !isInvalidRazonSocial(resolvedName)) {
       return NextResponse.json(
         {
           valid: true,
           cuit: cleanCuit,
-          razonSocial: resolvedName,
+          razonSocial: AGRO_CORPORATE_DIRECTORY[cleanCuit],
           tipoPersona,
           dni,
           isPersonaFisica,
-          source,
+          source: "DIRECTORIO_AGRO",
         },
         {
           status: 200,
@@ -347,7 +208,30 @@ export async function GET(
       );
     }
 
-    // 4. El CUIT es matemáticamente válido en AFIP, pero sin registro en padrones públicos
+    // 3. Consulta a la API Oficial del Banco Central de la República Argentina (BCRA)
+    const bcraName = await fetchBcraDenominacion(cleanCuit);
+
+    if (bcraName && isValidTaxpayerName(bcraName)) {
+      return NextResponse.json(
+        {
+          valid: true,
+          cuit: cleanCuit,
+          razonSocial: bcraName.trim().toUpperCase(),
+          tipoPersona,
+          dni,
+          isPersonaFisica,
+          source: "BCRA_OFICIAL",
+        },
+        {
+          status: 200,
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      );
+    }
+
+    // 4. CUIT matemáticamente válido ante AFIP, sin registro previo en padrón financiero
     return NextResponse.json(
       {
         valid: true,
