@@ -77,36 +77,7 @@ const defaultClientProfile: ClientProfile = {
   actividadPrincipal: "Producción Agrícola Extensiva (Soja, Maíz, Trigo, Girasol)",
 };
 
-const defaultEstablishments: Establishment[] = [
-  {
-    id: "est-001",
-    nombre: "La Rinconada",
-    provincia: "Córdoba",
-    localidad: "Río Cuarto",
-    hectareas: 850,
-    actividad: "Agrícola",
-    referenciaAcceso:
-      "Ruta Nac. 8 Km 612. Bajar 4 km al norte por camino vecinal de tierra consolidado. Tranquera blanca de quebracho sobre mano derecha.",
-    coordenadasGps: "-33.128450, -64.382100",
-    linkMaps: "https://www.google.com/maps/search/?api=1&query=-33.128450,-64.382100",
-    tipoDescarga: "Tranquera de campo / Tolva / Silobolsa",
-    esPrincipal: true,
-  },
-  {
-    id: "est-002",
-    nombre: "El Trébol",
-    provincia: "Córdoba",
-    localidad: "Adelia María",
-    hectareas: 420,
-    actividad: "Mixto",
-    referenciaAcceso:
-      "Acceso Este Adelia María por RP 24, 6 km camino a Huanchilla. Entrada con cartel de madera.",
-    coordenadasGps: "-33.642100, -64.015200",
-    linkMaps: "https://www.google.com/maps/search/?api=1&query=-33.642100,-64.015200",
-    tipoDescarga: "Galpón / Depósito techado",
-    esPrincipal: false,
-  },
-];
+const defaultEstablishments: Establishment[] = [];
 
 const defaultSentQuotations: SentQuotation[] = [
   {
@@ -273,7 +244,18 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
       const savedEst = localStorage.getItem("cd_client_establishments");
       if (savedEst) {
-        setEstablishments(JSON.parse(savedEst));
+        try {
+          const parsed = JSON.parse(savedEst);
+          const cleaned = Array.isArray(parsed)
+            ? parsed.filter((e: Establishment) => !["est-001", "est-002"].includes(e.id))
+            : [];
+          setEstablishments(cleaned);
+          localStorage.setItem("cd_client_establishments", JSON.stringify(cleaned));
+        } catch {
+          setEstablishments([]);
+        }
+      } else {
+        setEstablishments([]);
       }
       const savedSent = localStorage.getItem("cd_client_sent_quotations");
       if (savedSent) {

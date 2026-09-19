@@ -173,10 +173,22 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setQuotationsSent(JSON.parse(savedSent));
       }
 
-      // 5. Establecimientos
+      // 5. Establecimientos: Borrar los de prueba y mantener solo los cargados por el operador
       const savedEst = localStorage.getItem("cd_admin_establishments");
       if (savedEst) {
-        setEstablishments(JSON.parse(savedEst));
+        try {
+          const parsed = JSON.parse(savedEst);
+          const demoIds = ["est-001", "est-002", "est-003", "est-004", "est-005"];
+          const cleaned = Array.isArray(parsed)
+            ? parsed.filter((e: AdminEstablishment) => !demoIds.includes(e.id))
+            : [];
+          setEstablishments(cleaned);
+          localStorage.setItem("cd_admin_establishments", JSON.stringify(cleaned));
+        } catch {
+          setEstablishments([]);
+        }
+      } else {
+        setEstablishments([]);
       }
 
       // 6. Formas de Pago

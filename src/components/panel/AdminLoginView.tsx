@@ -7,7 +7,7 @@ import { Logo } from "@/components/ui/Logo";
 
 export const AdminLoginView: React.FC = () => {
   const { login } = useAdmin();
-  const [usuario, setUsuario] = useState("CampoDirecto");
+  const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -25,12 +25,6 @@ export const AdminLoginView: React.FC = () => {
       }
       setIsLoading(false);
     }, 350);
-  };
-
-  const handleFillDemo = () => {
-    setUsuario("CampoDirecto");
-    setPassword("Claro$008");
-    setErrorMsg("");
   };
 
   return (
@@ -137,18 +131,6 @@ export const AdminLoginView: React.FC = () => {
               )}
             </button>
           </form>
-
-          {/* Autocompletar rápido con credenciales de prueba */}
-          <div className="mt-6 pt-5 border-t border-slate-800 text-center">
-            <button
-              type="button"
-              onClick={handleFillDemo}
-              className="text-xs text-slate-400 hover:text-campo-yellow-light transition-colors inline-flex items-center gap-1.5 py-1 px-3 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60"
-            >
-              <span>🔑 Cargar credenciales:</span>
-              <strong className="text-slate-200">CampoDirecto / Claro$008</strong>
-            </button>
-          </div>
         </div>
 
         {/* Footer institucional */}
