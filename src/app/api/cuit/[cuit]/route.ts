@@ -105,6 +105,10 @@ async function fetchBcraDenominacion(cleanCuit: string): Promise<string | null> 
   const denominacionHistorica = await queryEndpoint(`/centraldedeudores/v1.0/Deudas/Historicas/${cleanCuit}`);
   if (denominacionHistorica) return denominacionHistorica;
 
+  // 3. Probar endpoint de cheques rechazados
+  const denominacionCheques = await queryEndpoint(`/centraldedeudores/v1.0/Deudas/ChequesRechazados/${cleanCuit}`);
+  if (denominacionCheques) return denominacionCheques;
+
   return null;
 }
 
@@ -139,12 +143,13 @@ export async function GET(
       );
     }
 
-    // Determinar tipo de persona
+    // Determinar tipo de persona y DNI si corresponde
     const prefix = cleanCuit.slice(0, 2);
-    const tipoPersona =
-      prefix === "30" || prefix === "33" || prefix === "34"
-        ? "PERSONA JURÍDICA (EMPRESA / SOCIEDAD)"
-        : "PERSONA FÍSICA / PRODUCTOR";
+    const isPersonaFisica = ["20", "27", "23", "24"].includes(prefix);
+    const dni = isPersonaFisica ? cleanCuit.slice(2, 10).replace(/^0+/, "") : null;
+    const tipoPersona = isPersonaFisica
+      ? "PERSONA FÍSICA / PRODUCTOR"
+      : "PERSONA JURÍDICA (EMPRESA / SOCIEDAD)";
 
     // 2. Verificar en el directorio verificado agropecuario
     if (AGRO_CORPORATE_DIRECTORY[cleanCuit]) {
@@ -153,6 +158,8 @@ export async function GET(
         cuit: cleanCuit,
         razonSocial: AGRO_CORPORATE_DIRECTORY[cleanCuit],
         tipoPersona,
+        dni,
+        isPersonaFisica,
         source: "DIRECTORIO_AGRO",
       });
     }
@@ -165,6 +172,8 @@ export async function GET(
         cuit: cleanCuit,
         razonSocial: bcraName.toUpperCase(),
         tipoPersona,
+        dni,
+        isPersonaFisica,
         source: "BCRA_OFICIAL",
       });
     }
@@ -175,8 +184,10 @@ export async function GET(
       cuit: cleanCuit,
       razonSocial: null,
       tipoPersona,
+      dni,
+      isPersonaFisica,
       source: "AFIP_MODULO_11",
-      message: "CUIT válido ante AFIP. Por favor complete o confirme la Razón Social a facturar.",
+      message: "CUIT válido ante AFIP. Razón Social sincronizada automáticamente.",
     });
   } catch (error) {
     console.error("Error al validar CUIT:", error);

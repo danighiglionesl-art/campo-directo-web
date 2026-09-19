@@ -59,6 +59,7 @@ export interface ClientRegistrationData {
   email: string;
   provincia: string;
   localidad: string;
+  codigoPostal?: string;
   cuit: string;
   razonSocial: string;
   horariosPreferidos: string[];

@@ -11,6 +11,7 @@ export interface ClientProfile {
   whatsapp: string;
   provincia: string;
   localidad: string;
+  codigoPostal?: string;
   direccion: string;
   actividadPrincipal: string;
 }

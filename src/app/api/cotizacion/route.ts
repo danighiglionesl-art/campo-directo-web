@@ -53,7 +53,7 @@ export async function POST(request: Request) {
           `- Fecha Nacimiento: ${client.fechaNacimiento || "-"}\n` +
           `- WhatsApp: ${client.whatsappCountryCode || ""} ${client.whatsappNumber || "-"}\n` +
           `- Email: ${client.email || "-"}\n` +
-          `- Ubicación: ${client.localidad || "-"}, ${client.provincia || "-"}\n` +
+          `- Ubicación: ${client.localidad || "-"}, ${client.provincia || "-"}${client.codigoPostal ? ` (CP: ${client.codigoPostal})` : ""}\n` +
           `- CUIT: ${client.cuit || "-"}\n` +
           `- Razón Social: ${client.razonSocial || "-"}\n` +
           `- Horarios de contacto preferidos: ${client.horariosPreferidos?.join(", ") || "Indistinto"}\n` +

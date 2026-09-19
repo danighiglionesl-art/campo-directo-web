@@ -72,6 +72,7 @@ const defaultClientProfile: ClientProfile = {
   whatsapp: "+54 9 358 5095475",
   provincia: "Córdoba",
   localidad: "Río Cuarto",
+  codigoPostal: "5800",
   direccion: "Ruta Nac. 8 Km 605 - Parque Industrial",
   actividadPrincipal: "Producción Agrícola Extensiva (Soja, Maíz, Trigo, Girasol)",
 };

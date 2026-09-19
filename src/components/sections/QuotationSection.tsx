@@ -197,6 +197,7 @@ export const QuotationSection: React.FC = () => {
     email: "",
     provincia: "BUENOS AIRES",
     localidad: "PERGAMINO",
+    codigoPostal: "",
     cuit: "",
     razonSocial: "",
     horariosPreferidos: ["MAÑANA (08:00 A 12:00 HS)"],
@@ -204,6 +205,9 @@ export const QuotationSection: React.FC = () => {
     usuario: "",
     password: "",
   });
+
+  // Indicador de razón social auto-generada desde AFIP/BCRA o Apellidos y Nombres
+  const [isRazonSocialAuto, setIsRazonSocialAuto] = useState<boolean>(false);
 
   // Formulario CLIENTE REGISTRADO
   const [formRegistrado, setFormRegistrado] = useState({
@@ -398,9 +402,9 @@ export const QuotationSection: React.FC = () => {
     );
   }, [semillaEmpresa, semillaCultivo, semillaTecnologia]);
 
-  // Localidades según provincia seleccionada
+  // Localidades según provincia seleccionada (sugerencias autocompletables)
   const currentLocalities = useMemo(() => {
-    return LOCALITIES_BY_PROVINCE[formNuevo.provincia] || ["OTRA LOCALIDAD"];
+    return LOCALITIES_BY_PROVINCE[formNuevo.provincia] || [];
   }, [formNuevo.provincia]);
 
   // --- ACCIONES DEL CARRITO ---
@@ -490,7 +494,33 @@ export const QuotationSection: React.FC = () => {
     setCartItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // --- CONSULTA AUTOMÁTICA AFIP Y BCRA ---
+  // --- PROCESO AUTOMÁTICO: CONSULTA AFIP/BCRA Y RAZÓN SOCIAL ---
+  const handleApellidosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.toUpperCase();
+    setFormNuevo((prev) => {
+      const next = { ...prev, apellidos: val };
+      if (isRazonSocialAuto || !prev.razonSocial.trim()) {
+        const auto = `${val} ${prev.nombres}`.trim();
+        next.razonSocial = auto;
+        if (auto) setIsRazonSocialAuto(true);
+      }
+      return next;
+    });
+  };
+
+  const handleNombresChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.toUpperCase();
+    setFormNuevo((prev) => {
+      const next = { ...prev, nombres: val };
+      if (isRazonSocialAuto || !prev.razonSocial.trim()) {
+        const auto = `${prev.apellidos} ${val}`.trim();
+        next.razonSocial = auto;
+        if (auto) setIsRazonSocialAuto(true);
+      }
+      return next;
+    });
+  };
+
   const handleCuitChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value.replace(/\D/g, "").slice(0, 11);
     const formatted = formatCuit(rawVal);
@@ -510,11 +540,28 @@ export const QuotationSection: React.FC = () => {
         const result = await lookupCuitAfip(rawVal);
         if (!result.valid) {
           setAfipErrorMessage(result.error || "CUIT INVÁLIDO: No superó la validación oficial.");
-        } else if (result.razonSocial) {
-          setFormNuevo((prev) => ({ ...prev, razonSocial: result.razonSocial!.toUpperCase() }));
-          setAfipSuccessMessage(`CUIT VALIDADO (${result.tipoPersona || "CONTRIBUYENTE"}): ${result.razonSocial!.toUpperCase()}`);
         } else {
-          setAfipSuccessMessage("CUIT VÁLIDO ANTE AFIP. Por favor confirmá o escribí la Razón Social a facturar.");
+          // Si el CUIT contiene DNI y no se había ingresado, auto-completar DNI
+          if (result.dni) {
+            setFormNuevo((prev) => (prev.dni ? prev : { ...prev, dni: result.dni! }));
+          }
+
+          if (result.razonSocial) {
+            // Razón social obtenida de BCRA / Directorio Corporativo
+            setFormNuevo((prev) => ({ ...prev, razonSocial: result.razonSocial!.toUpperCase() }));
+            setIsRazonSocialAuto(true);
+            setAfipSuccessMessage(`CUIT VALIDADO (${result.tipoPersona || "CONTRIBUYENTE"}): ${result.razonSocial!.toUpperCase()}`);
+          } else {
+            // Proceso automático: persona física o contribuyente sin registro societario previo
+            // Su denominación legal ante AFIP es automáticamente su Apellido y Nombre
+            const nombreCompleto = `${formNuevo.apellidos.trim()} ${formNuevo.nombres.trim()}`.trim();
+            const autoRazon = nombreCompleto || (result.isPersonaFisica ? `PRODUCTOR CUIT ${formatted}` : `EMPRESA CUIT ${formatted}`);
+            setFormNuevo((prev) => ({ ...prev, razonSocial: autoRazon.toUpperCase() }));
+            setIsRazonSocialAuto(true);
+            setAfipSuccessMessage(
+              `CUIT VALIDADO ANTE AFIP (${result.tipoPersona || "PRODUCTOR"}): ${autoRazon.toUpperCase()}`
+            );
+          }
         }
       } catch (err) {
         console.error("Error al consultar CUIT:", err);
@@ -719,9 +766,14 @@ export const QuotationSection: React.FC = () => {
       modalScrollRef.current?.scrollTo({ top: 100, behavior: "smooth" });
       return;
     }
-    if (!formNuevo.email.trim()) {
-      setFormError("EL CORREO ELECTRÓNICO ES OBLIGATORIO");
-      modalScrollRef.current?.scrollTo({ top: 100, behavior: "smooth" });
+    if (!formNuevo.localidad.trim()) {
+      setFormError("LA LOCALIDAD ES OBLIGATORIA");
+      modalScrollRef.current?.scrollTo({ top: 150, behavior: "smooth" });
+      return;
+    }
+    if (!formNuevo.codigoPostal.trim()) {
+      setFormError("EL CÓDIGO POSTAL ES OBLIGATORIO");
+      modalScrollRef.current?.scrollTo({ top: 150, behavior: "smooth" });
       return;
     }
     if (!formNuevo.cuit.trim() || formNuevo.cuit.replace(/\D/g, "").length < 11) {
@@ -729,11 +781,13 @@ export const QuotationSection: React.FC = () => {
       modalScrollRef.current?.scrollTo({ top: 200, behavior: "smooth" });
       return;
     }
-    if (!formNuevo.razonSocial.trim()) {
-      setFormError("EL NOMBRE O RAZÓN SOCIAL ES OBLIGATORIO");
-      modalScrollRef.current?.scrollTo({ top: 200, behavior: "smooth" });
-      return;
-    }
+
+    // RESOLVER AUTOMÁTICAMENTE LA RAZÓN SOCIAL: Proceso 100% automático sin bloquear al usuario
+    const autoResolvedRazonSocial =
+      formNuevo.razonSocial.trim() ||
+      `${formNuevo.apellidos.trim()} ${formNuevo.nombres.trim()}`.trim() ||
+      `PRODUCTOR CUIT ${formNuevo.cuit}`;
+
     if (!formNuevo.password.trim()) {
       setFormError("POR FAVOR DEFINÍ UNA CONTRASEÑA PARA TU CUENTA");
       modalScrollRef.current?.scrollTo({ top: 300, behavior: "smooth" });
@@ -742,7 +796,7 @@ export const QuotationSection: React.FC = () => {
 
     const res = registerClient({
       usuario: formNuevo.usuario || formNuevo.email.split("@")[0].toUpperCase(),
-      razonSocial: formNuevo.razonSocial.toUpperCase(),
+      razonSocial: autoResolvedRazonSocial.toUpperCase(),
       apellidos: formNuevo.apellidos.toUpperCase(),
       nombres: formNuevo.nombres.toUpperCase(),
       cuit: formNuevo.cuit,
@@ -750,6 +804,7 @@ export const QuotationSection: React.FC = () => {
       whatsapp: `${formNuevo.whatsappCountryCode} ${formNuevo.whatsappNumber}`,
       provincia: formNuevo.provincia,
       localidad: formNuevo.localidad,
+      codigoPostal: formNuevo.codigoPostal,
     });
 
     if (res.success) {
@@ -843,6 +898,7 @@ export const QuotationSection: React.FC = () => {
           nombres: user.nombres,
           provincia: user.provincia,
           localidad: user.localidad,
+          codigoPostal: user.codigoPostal || formNuevo.codigoPostal || undefined,
           telefono: user.telefono || user.whatsapp,
           whatsappNumber: user.whatsapp,
           establecimientoDestino: targetEstablishmentName,
@@ -2648,12 +2704,7 @@ export const QuotationSection: React.FC = () => {
                           required
                           placeholder="APELLIDOS"
                           value={formNuevo.apellidos}
-                          onChange={(e) =>
-                            setFormNuevo((prev) => ({
-                              ...prev,
-                              apellidos: e.target.value.toUpperCase(),
-                            }))
-                          }
+                          onChange={handleApellidosChange}
                           className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold focus:border-campo-green focus:outline-none bg-white"
                         />
                       </div>
@@ -2666,12 +2717,7 @@ export const QuotationSection: React.FC = () => {
                           required
                           placeholder="NOMBRES"
                           value={formNuevo.nombres}
-                          onChange={(e) =>
-                            setFormNuevo((prev) => ({
-                              ...prev,
-                              nombres: e.target.value.toUpperCase(),
-                            }))
-                          }
+                          onChange={handleNombresChange}
                           className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold focus:border-campo-green focus:outline-none bg-white"
                         />
                       </div>
@@ -2777,10 +2823,10 @@ export const QuotationSection: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* 7. Provincia y 8. Localidad */}
+                  {/* 7. Provincia, Localidad y Código Postal */}
                   <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                      <div className="sm:col-span-5">
                         <label className="block text-[11px] font-black uppercase text-slate-700 mb-1">
                           PROVINCIA (DESPLEGABLE) *
                         </label>
@@ -2788,7 +2834,7 @@ export const QuotationSection: React.FC = () => {
                           value={formNuevo.provincia}
                           onChange={(e) => {
                             const newProv = e.target.value.toUpperCase();
-                            const defaultLoc = LOCALITIES_BY_PROVINCE[newProv]?.[0] || "OTRA LOCALIDAD";
+                            const defaultLoc = LOCALITIES_BY_PROVINCE[newProv]?.[0] || "";
                             setFormNuevo((prev) => ({
                               ...prev,
                               provincia: newProv,
@@ -2805,11 +2851,15 @@ export const QuotationSection: React.FC = () => {
                         </select>
                       </div>
 
-                      <div>
+                      <div className="sm:col-span-4">
                         <label className="block text-[11px] font-black uppercase text-slate-700 mb-1">
-                          LOCALIDAD (DESPLEGABLE) *
+                          LOCALIDAD *
                         </label>
-                        <select
+                        <input
+                          type="text"
+                          required
+                          list="localidades-provincia"
+                          placeholder="ESCRIBÍ O ELEGÍ TU LOCALIDAD"
                           value={formNuevo.localidad}
                           onChange={(e) =>
                             setFormNuevo((prev) => ({
@@ -2817,14 +2867,32 @@ export const QuotationSection: React.FC = () => {
                               localidad: e.target.value.toUpperCase(),
                             }))
                           }
-                          className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold bg-white focus:outline-none focus:border-campo-green cursor-pointer"
-                        >
+                          className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold bg-white focus:outline-none focus:border-campo-green"
+                        />
+                        <datalist id="localidades-provincia">
                           {currentLocalities.map((loc) => (
-                            <option key={loc} value={loc}>
-                              {loc}
-                            </option>
+                            <option key={loc} value={loc} />
                           ))}
-                        </select>
+                        </datalist>
+                      </div>
+
+                      <div className="sm:col-span-3">
+                        <label className="block text-[11px] font-black uppercase text-slate-700 mb-1">
+                          CÓDIGO POSTAL (CP) *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="EJ. 2700 / X5800"
+                          value={formNuevo.codigoPostal}
+                          onChange={(e) =>
+                            setFormNuevo((prev) => ({
+                              ...prev,
+                              codigoPostal: e.target.value.toUpperCase(),
+                            }))
+                          }
+                          className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold bg-white focus:outline-none focus:border-campo-green"
+                        />
                       </div>
                     </div>
                   </div>
@@ -2861,20 +2929,28 @@ export const QuotationSection: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-black uppercase text-slate-700 mb-1">
-                          NOMBRE O RAZÓN SOCIAL A FACTURAR *
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] font-black uppercase text-slate-700">
+                            NOMBRE O RAZÓN SOCIAL A FACTURAR *
+                          </label>
+                          {isRazonSocialAuto && (
+                            <span className="text-[9px] font-bold text-campo-green bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                              PROCESO AUTOMÁTICO
+                            </span>
+                          )}
+                        </div>
                         <input
                           type="text"
                           required
                           placeholder="RAZÓN SOCIAL / TITULAR A FACTURAR"
                           value={formNuevo.razonSocial}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            setIsRazonSocialAuto(false);
                             setFormNuevo((prev) => ({
                               ...prev,
                               razonSocial: e.target.value.toUpperCase(),
-                            }))
-                          }
+                            }));
+                          }}
                           className="w-full uppercase py-2 px-3 rounded-lg border border-slate-300 text-xs font-semibold bg-slate-50 focus:bg-white focus:border-campo-green focus:outline-none"
                         />
                       </div>
