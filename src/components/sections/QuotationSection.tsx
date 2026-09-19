@@ -1010,7 +1010,7 @@ export const QuotationSection: React.FC = () => {
   return (
     <section
       id="tu-cotizacion"
-      className="py-16 sm:py-24 bg-slate-50 relative border-t border-slate-200/80 overflow-hidden"
+      className="py-16 sm:py-24 bg-slate-50 relative border-b border-slate-200/80 overflow-hidden"
     >
       {/* Marca de agua de sembrado que termina en la nada sin cortes */}
       <div className="absolute bottom-0 left-0 right-0 h-72 sm:h-96 pointer-events-none overflow-hidden z-0 select-none">

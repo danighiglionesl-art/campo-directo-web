@@ -10,25 +10,25 @@ import { ContactSection } from "@/components/sections/ContactSection";
 export default function Home() {
   return (
     <div className="w-full">
-      {/* 1. HERO PRINCIPAL (Etapa 2) */}
+      {/* 1. HERO PRINCIPAL */}
       <HeroSection />
 
-      {/* 2. QUIÉNES SOMOS (Etapa 2) */}
-      <AboutSection />
-
-      {/* 3. QUÉ HACEMOS (Etapa 3) */}
-      <WhatWeDoSection />
-
-      {/* 5. POR QUÉ CAMPO DIRECTO (Etapa 4) */}
-      <WhyUsSection />
-
-      {/* 6. COBERTURA GEOGRÁFICA (Etapa 4) */}
-      <CoverageSection />
-
-      {/* 7. TU COTIZACIÓN / MARKETPLACE DIRECTO */}
+      {/* 2. TU COTIZACIÓN / MARKETPLACE DIRECTO */}
       <QuotationSection />
 
-      {/* 8. CONTACTO & REDES (Etapa 5) */}
+      {/* 3. QUIÉNES SOMOS */}
+      <AboutSection />
+
+      {/* 4. QUÉ HACEMOS */}
+      <WhatWeDoSection />
+
+      {/* 5. POR QUÉ CAMPO DIRECTO */}
+      <WhyUsSection />
+
+      {/* 6. COBERTURA GEOGRÁFICA */}
+      <CoverageSection />
+
+      {/* 7. CONTACTO & REDES */}
       <ContactSection />
     </div>
   );
