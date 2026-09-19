@@ -1,5 +1,5 @@
 // Service Worker Oficial de Campo Directo PWA
-const CACHE_NAME = "campo-directo-v1";
+const CACHE_NAME = "campo-directo-v2";
 const OFFLINE_URL = "/offline";
 
 // Recursos estáticos iniciales a precachear
@@ -8,9 +8,10 @@ const PRECACHE_ASSETS = [
   "/offline",
   "/manifest.json",
   "/favicon.ico",
-  "/android-chrome-192x192.png?v=3",
-  "/android-chrome-512x512.png?v=3",
-  "/apple-touch-icon.png?v=3",
+  "/icon-transparent-192x192.png?v=5",
+  "/icon-transparent-512x512.png?v=5",
+  "/android-chrome-512x512.png?v=5",
+  "/apple-touch-icon.png?v=5",
   "/images/logo-transparent.png"
 ];
 

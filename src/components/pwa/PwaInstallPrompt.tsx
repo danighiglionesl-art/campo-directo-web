@@ -233,7 +233,7 @@ export const PwaInstallPrompt: React.FC = () => {
             {/* Ícono de la app con marco redondeado */}
             <div className="relative w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 shadow-xs shrink-0 overflow-hidden flex items-center justify-center p-1">
               <Image
-                src="/android-chrome-192x192.png?v=3"
+                src="/icon-transparent-192x192.png?v=5"
                 alt="Campo Directo"
                 width={48}
                 height={48}
@@ -290,7 +290,7 @@ export const PwaInstallPrompt: React.FC = () => {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden flex items-center justify-center p-1">
                   <Image
-                    src="/android-chrome-192x192.png?v=3"
+                    src="/icon-transparent-192x192.png?v=5"
                     alt="Campo Directo"
                     width={40}
                     height={40}
@@ -391,7 +391,7 @@ export const PwaInstallPrompt: React.FC = () => {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden flex items-center justify-center p-1">
                   <Image
-                    src="/android-chrome-192x192.png?v=3"
+                    src="/icon-transparent-192x192.png?v=5"
                     alt="Campo Directo"
                     width={40}
                     height={40}
