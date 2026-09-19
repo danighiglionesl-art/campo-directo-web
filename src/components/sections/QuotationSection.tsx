@@ -148,9 +148,39 @@ export const QuotationSection: React.FC = () => {
   const [fleteSelected, setFleteSelected] = useState<string>(granosConfig.fletes[0] || "SERVICIO DE FLETE DE TERCEROS");
   const [volumenTn, setVolumenTn] = useState<string>("100");
 
-  // 5. Lista de Cotización en Tiempo Real (Carrito)
+  // 5. Lista de Cotización en Tiempo Real (Carrito con persistencia PWA)
   const [cartItems, setCartItems] = useState<QuoteItem[]>([]);
   const [quickNotice, setQuickNotice] = useState<string | null>(null);
+  const [isCartLoaded, setIsCartLoaded] = useState<boolean>(false);
+
+  // Cargar carrito persistido en localStorage al montar en cliente
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = localStorage.getItem("cd_quotation_cart");
+      if (saved) {
+        setCartItems(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error("Error al cargar carrito guardado:", e);
+    } finally {
+      setIsCartLoaded(true);
+    }
+  }, []);
+
+  // Sincronizar cambios del carrito con localStorage
+  useEffect(() => {
+    if (!isCartLoaded || typeof window === "undefined") return;
+    try {
+      if (cartItems.length > 0) {
+        localStorage.setItem("cd_quotation_cart", JSON.stringify(cartItems));
+      } else {
+        localStorage.removeItem("cd_quotation_cart");
+      }
+    } catch (e) {
+      console.error("Error al persistir carrito:", e);
+    }
+  }, [cartItems, isCartLoaded]);
 
   // 6. Modal de Identificación / Checkout
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
@@ -7,10 +7,22 @@ import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
 import { ClientProviders } from "@/components/providers/ClientProviders";
 import { siteConfig } from "@/data/siteConfig";
 
+export const viewport: Viewport = {
+  themeColor: "#339966",
+  width: "device-width",
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://campodirecto.ar"),
   title: `${siteConfig.name} | Soluciones Directas para el Agro Argentino`,
   description: siteConfig.description,
+  applicationName: "Campo Directo",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Campo Directo",
+  },
   keywords: [
     "Campo Directo",
     "Agro argentino",
@@ -34,7 +46,7 @@ export const metadata: Metadata = {
       { url: "/apple-touch-icon.png?v=3", sizes: "180x180", type: "image/png" },
     ],
   },
-  manifest: "/manifest.json",
+  manifest: "/manifest.json?v=4",
   openGraph: {
     type: "website",
     locale: "es_AR",
@@ -71,9 +83,12 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=3" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=3" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=3" />
-        <link rel="manifest" href="/manifest.json?v=3" />
-        <meta name="theme-color" content="#22963c" />
-        <meta name="msapplication-TileColor" content="#22963c" />
+        <link rel="manifest" href="/manifest.json?v=4" />
+        <meta name="theme-color" content="#339966" />
+        <meta name="msapplication-TileColor" content="#339966" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Campo Directo" />
         <meta property="og:image" content="https://campodirecto.ar/images/og-campo-directo.png?v=3" />
         <meta name="twitter:image" content="https://campodirecto.ar/images/og-campo-directo.png?v=3" />
       </head>
