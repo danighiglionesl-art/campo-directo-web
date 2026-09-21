@@ -40,7 +40,7 @@ import { ARGENTINE_PROVINCES, lookupCuitAfip, validateCuitModulo11 } from "@/dat
 import { ClientRecoveryModal, RecoveryTab } from "@/components/portal/ClientRecoveryModal";
 import { generateProposalPdf } from "@/utils/quotationPdfGenerator";
 
-export const ClientPortalModal: React.FC = () => {
+const ClientPortalModalContent: React.FC = () => {
   const {
     user,
     isAuthenticated,
@@ -158,6 +158,15 @@ export const ClientPortalModal: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isPortalOpen, closePortal]);
 
+  // Reset al cerrar portal
+  useEffect(() => {
+    if (!isPortalOpen) {
+      setAuthMode("login");
+      setLoginError("");
+      setRegError("");
+    }
+  }, [isPortalOpen]);
+
   // Si no está abierto, no renderizar nada
   if (!isPortalOpen) return null;
 
@@ -169,15 +178,6 @@ export const ClientPortalModal: React.FC = () => {
       setLoginError(res.error || "Usuario o contraseña inválidos");
     }
   };
-
-  // Reset al cerrar portal
-  useEffect(() => {
-    if (!isPortalOpen) {
-      setAuthMode("login");
-      setLoginError("");
-      setRegError("");
-    }
-  }, [isPortalOpen]);
 
   const handleGoogleLogin = async () => {
     try {
@@ -1049,7 +1049,7 @@ export const ClientPortalModal: React.FC = () => {
                 <MapPin className="w-3.5 h-3.5 shrink-0" />
                 <span>Mis Establecimientos</span>
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-700">
-                  {establishments.length}
+                  {(establishments || []).length}
                 </span>
               </button>
 
@@ -1065,7 +1065,7 @@ export const ClientPortalModal: React.FC = () => {
                 <Send className="w-3.5 h-3.5 shrink-0" />
                 <span>Cotizaciones Enviadas</span>
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-800">
-                  {sentQuotations.length}
+                  {(sentQuotations || []).length}
                 </span>
               </button>
 
@@ -1081,7 +1081,7 @@ export const ClientPortalModal: React.FC = () => {
                 <Inbox className="w-3.5 h-3.5 shrink-0" />
                 <span>Cotizaciones Recibidas</span>
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-800 font-black">
-                  {receivedQuotations.filter((r) => r.estado === "VIGENTE").length}
+                  {(receivedQuotations || []).filter((r) => r && r.estado === "VIGENTE").length}
                 </span>
               </button>
             </div>
@@ -1623,7 +1623,7 @@ export const ClientPortalModal: React.FC = () => {
                     </p>
                   </div>
 
-                  {sentQuotations.length === 0 ? (
+                  {(sentQuotations || []).length === 0 ? (
                     <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-slate-300">
                       <Send className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                       <p className="text-xs text-slate-500 font-medium">
@@ -1632,7 +1632,7 @@ export const ClientPortalModal: React.FC = () => {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {sentQuotations.map((quotation) => (
+                      {(sentQuotations || []).map((quotation) => (
                         <div
                           key={quotation.id}
                           className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-campo-green/40 transition-all space-y-3"
@@ -1673,10 +1673,10 @@ export const ClientPortalModal: React.FC = () => {
                           {/* Lista de Items */}
                           <div className="space-y-1.5">
                             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                              Productos Solicitados ({quotation.items.length}):
+                              Productos Solicitados ({(quotation.items || []).length}):
                             </span>
                             <div className="grid grid-cols-1 gap-2">
-                              {quotation.items.map((item, idx) => (
+                              {(quotation.items || []).map((item, idx) => (
                                 <div
                                   key={item.id || idx}
                                   className="p-2.5 bg-slate-50 rounded-xl flex items-center justify-between text-xs"
@@ -1733,7 +1733,7 @@ export const ClientPortalModal: React.FC = () => {
                   </div>
 
                   <div className="space-y-4">
-                    {receivedQuotations.map((prop) => (
+                    {(receivedQuotations || []).map((prop) => (
                       <div
                         key={prop.id}
                         className={`bg-white p-5 rounded-2xl border shadow-xs transition-all space-y-3 ${
@@ -1769,7 +1769,7 @@ export const ClientPortalModal: React.FC = () => {
                               Total Cotizado
                             </span>
                             <span className="text-lg sm:text-xl font-black text-slate-900">
-                              U$S {prop.totalUsd.toLocaleString("es-AR")}
+                              U$S {(prop.totalUsd || 0).toLocaleString("es-AR")}
                             </span>
                           </div>
                         </div>
@@ -1802,7 +1802,7 @@ export const ClientPortalModal: React.FC = () => {
                             Detalle de Insumos / Semillas Incluidos:
                           </span>
                           <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
-                            {prop.items.map((it) => (
+                            {(prop.items || []).map((it) => (
                               <div
                                 key={it.id}
                                 className="p-2.5 bg-white flex items-center justify-between text-xs"
@@ -1810,12 +1810,12 @@ export const ClientPortalModal: React.FC = () => {
                                 <div>
                                   <span className="font-bold text-slate-800">{it.descripcion}</span>
                                   <span className="text-slate-500 block text-[11px]">
-                                    Cantidad: {it.cantidad} · Unitario: U$S {it.precioUnitarioUsd.toFixed(2)}
+                                    Cantidad: {it.cantidad} · Unitario: U$S {(it.precioUnitarioUsd != null ? Number(it.precioUnitarioUsd) : 0).toFixed(2)}
                                   </span>
                                 </div>
                                 <div className="text-right">
                                   <span className="font-bold text-slate-900">
-                                    U$S {it.subtotalUsd.toLocaleString("es-AR")}
+                                    U$S {(it.subtotalUsd || 0).toLocaleString("es-AR")}
                                   </span>
                                 </div>
                               </div>
@@ -1925,3 +1925,82 @@ export const ClientPortalModal: React.FC = () => {
     </div>
   );
 };
+
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class PortalErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("PortalErrorBoundary caught error:", error, errorInfo);
+  }
+
+  handleReset = () => {
+    try {
+      localStorage.removeItem("cd_client_user");
+      localStorage.removeItem("cd_client_rec_quotations");
+      localStorage.removeItem("cd_client_sent_quotations");
+      localStorage.removeItem("cd_client_establishments");
+    } catch {}
+    this.setState({ hasError: false, error: null });
+    window.location.reload();
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white rounded-3xl p-6 shadow-2xl border border-red-200 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900">Portal de Clientes en Mantenimiento</h3>
+            <p className="text-xs text-slate-600">
+              Ocurrió una interrupción al cargar la información del portal. Podés reiniciar la sesión o comunicarte directamente por WhatsApp.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
+              <button
+                type="button"
+                onClick={this.handleReset}
+                className="px-4 py-2 bg-campo-green text-white text-xs font-bold rounded-xl hover:bg-campo-green-600 transition-colors"
+              >
+                Limpiar datos y reintentar
+              </button>
+              <button
+                type="button"
+                onClick={() => this.setState({ hasError: false, error: null })}
+                className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export const ClientPortalModal: React.FC = () => {
+  return (
+    <PortalErrorBoundary>
+      <ClientPortalModalContent />
+    </PortalErrorBoundary>
+  );
+};
+

@@ -48,6 +48,7 @@ import {
 import { useClientAuth } from "@/context/ClientAuthContext";
 import { triggerGoogleAuth } from "@/utils/googleAuth";
 import { ClientRecoveryModal, RecoveryTab } from "@/components/portal/ClientRecoveryModal";
+import { FactoryProduct } from "@/types/admin";
 import {
   allInsumos,
   allSemillas,
@@ -139,6 +140,65 @@ export const QuotationSection: React.FC = () => {
   const [semillaTecnologia, setSemillaTecnologia] = useState<string>("");
   const [semillaSearch, setSemillaSearch] = useState<string>("");
   const [semillaCurrentPage, setSemillaCurrentPage] = useState<number>(1);
+
+  // Catálogo sincronizado en tiempo real con el portal de fábricas
+  const [activeInsumos, setActiveInsumos] = useState<InsumoItem[]>(allInsumos);
+  const [activeSemillas, setActiveSemillas] = useState<SemillaItem[]>(allSemillas);
+
+  useEffect(() => {
+    const syncFromFactoryStorage = () => {
+      try {
+        const stored = localStorage.getItem("cd_factory_products");
+        if (!stored) return;
+        const prods: FactoryProduct[] = JSON.parse(stored);
+        if (!Array.isArray(prods) || prods.length === 0) return;
+
+        const syncedInsumos: InsumoItem[] = [];
+        const syncedSemillas: SemillaItem[] = [];
+
+        for (const p of prods) {
+          if (p.activoEnPortal === false) continue;
+
+          if (p.rubro === "Insumos") {
+            syncedInsumos.push({
+              id: p.id.replace(/^fprod-/, ""),
+              empresa: p.empresa,
+              producto: p.nombre,
+              categoria: p.categoria,
+              principioActivo: p.principioActivo,
+              cultivosPrincipales: Array.isArray(p.cultivos)
+                ? p.cultivos.join(", ")
+                : (p.cultivos || ""),
+            });
+          } else if (p.rubro === "Semillas") {
+            syncedSemillas.push({
+              id: p.id.replace(/^fprod-/, ""),
+              empresa: p.empresa,
+              semilla: p.cultivoSemilla || (p.cultivos && p.cultivos[0]) || "SEMILLA",
+              variedad: p.variedadSemilla || p.nombre,
+              tecnologia: p.tecnologiaSemilla || p.principioActivo || "-",
+              caracteristicas: p.caracteristicasSemilla || p.descripcion || "",
+            });
+          }
+        }
+
+        if (syncedInsumos.length > 0) setActiveInsumos(syncedInsumos);
+        if (syncedSemillas.length > 0) setActiveSemillas(syncedSemillas);
+      } catch (err) {
+        console.warn("Error sincronizando catálogo con portal fábrica:", err);
+      }
+    };
+
+    syncFromFactoryStorage();
+
+    window.addEventListener("cd_factory_products_updated", syncFromFactoryStorage);
+    window.addEventListener("storage", syncFromFactoryStorage);
+
+    return () => {
+      window.removeEventListener("cd_factory_products_updated", syncFromFactoryStorage);
+      window.removeEventListener("storage", syncFromFactoryStorage);
+    };
+  }, []);
 
   // 4. Formulario Constructor de Granos (TODO EN MAYÚSCULAS)
   const [granoSelected, setGranoSelected] = useState<string>(granosConfig.granos[0] || "SOJA");
@@ -306,9 +366,22 @@ export const QuotationSection: React.FC = () => {
     setSemillaCurrentPage(1);
   }, [semillaEmpresa, semillaVariedad, semillaCultivo, semillaTecnologia, semillaSearch]);
 
+  // Listas dinámicas de Empresas / Criaderos sincronizadas con el portal
+  const dynamicInsumoEmpresas = useMemo(() => {
+    return Array.from(new Set(activeInsumos.map((i) => i.empresa).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, "es", { sensitivity: "base" })
+    );
+  }, [activeInsumos]);
+
+  const dynamicSemillaEmpresas = useMemo(() => {
+    return Array.from(new Set(activeSemillas.map((s) => s.empresa).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, "es", { sensitivity: "base" })
+    );
+  }, [activeSemillas]);
+
   // --- FILTRADO DE INSUMOS (ESTILO EXCEL - TODO EN MAYÚSCULAS) ---
   const filteredInsumos = useMemo(() => {
-    return allInsumos.filter((item) => {
+    return activeInsumos.filter((item) => {
       if (insumoEmpresa && item.empresa !== insumoEmpresa) return false;
       if (insumoProducto && item.producto !== insumoProducto) return false;
       if (insumoCategoria && item.categoria !== insumoCategoria) return false;
@@ -334,7 +407,7 @@ export const QuotationSection: React.FC = () => {
       }
       return true;
     });
-  }, [insumoEmpresa, insumoProducto, insumoCategoria, insumoPrincipio, insumoCultivo, insumoSearch]);
+  }, [activeInsumos, insumoEmpresa, insumoProducto, insumoCategoria, insumoPrincipio, insumoCultivo, insumoSearch]);
 
   // Paginación a máximo 6 productos por página
   const paginatedInsumos = useMemo(() => {
@@ -346,34 +419,34 @@ export const QuotationSection: React.FC = () => {
 
   // Lista dinámica de Nombres Comerciales (Productos) según empresa/filtros seleccionados (MAYÚSCULAS)
   const availableInsumoProductos = useMemo(() => {
-    let list = allInsumos;
+    let list = activeInsumos;
     if (insumoEmpresa) list = list.filter((i) => i.empresa === insumoEmpresa);
     if (insumoCategoria) list = list.filter((i) => i.categoria === insumoCategoria);
     if (insumoPrincipio) list = list.filter((i) => i.principioActivo === insumoPrincipio);
     return Array.from(new Set(list.map((i) => i.producto).filter(Boolean))).sort((a, b) =>
       a.localeCompare(b, "es", { sensitivity: "base" })
     );
-  }, [insumoEmpresa, insumoCategoria, insumoPrincipio]);
+  }, [activeInsumos, insumoEmpresa, insumoCategoria, insumoPrincipio]);
 
   // Lista dinámica de Categorías según empresa seleccionada (MAYÚSCULAS)
   const availableInsumoCategorias = useMemo(() => {
     const list = insumoEmpresa
-      ? allInsumos.filter((i) => i.empresa === insumoEmpresa)
-      : allInsumos;
+      ? activeInsumos.filter((i) => i.empresa === insumoEmpresa)
+      : activeInsumos;
     return Array.from(new Set(list.map((i) => i.categoria).filter(Boolean))).sort();
-  }, [insumoEmpresa]);
+  }, [activeInsumos, insumoEmpresa]);
 
   // Lista dinámica de Principios Activos según empresa/categoría seleccionada (MAYÚSCULAS)
   const availableInsumoPrincipios = useMemo(() => {
-    let list = allInsumos;
+    let list = activeInsumos;
     if (insumoEmpresa) list = list.filter((i) => i.empresa === insumoEmpresa);
     if (insumoCategoria) list = list.filter((i) => i.categoria === insumoCategoria);
     return Array.from(new Set(list.map((i) => i.principioActivo).filter(Boolean))).sort();
-  }, [insumoEmpresa, insumoCategoria]);
+  }, [activeInsumos, insumoEmpresa, insumoCategoria]);
 
   // --- FILTRADO DE SEMILLAS (ESTILO EXCEL - TODO EN MAYÚSCULAS) ---
   const filteredSemillas = useMemo(() => {
-    return allSemillas.filter((item) => {
+    return activeSemillas.filter((item) => {
       if (semillaEmpresa && item.empresa !== semillaEmpresa) return false;
       if (semillaVariedad && item.variedad !== semillaVariedad) return false;
       if (semillaCultivo && item.semilla !== semillaCultivo) return false;
@@ -391,7 +464,7 @@ export const QuotationSection: React.FC = () => {
       }
       return true;
     });
-  }, [semillaEmpresa, semillaVariedad, semillaCultivo, semillaTecnologia, semillaSearch]);
+  }, [activeSemillas, semillaEmpresa, semillaVariedad, semillaCultivo, semillaTecnologia, semillaSearch]);
 
   const paginatedSemillas = useMemo(() => {
     const start = (semillaCurrentPage - 1) * PAGE_SIZE;
@@ -402,14 +475,14 @@ export const QuotationSection: React.FC = () => {
 
   // Lista dinámica de Variedades según criadero/empresa seleccionada (MAYÚSCULAS)
   const availableSemillaVariedades = useMemo(() => {
-    let list = allSemillas;
+    let list = activeSemillas;
     if (semillaEmpresa) list = list.filter((s) => s.empresa === semillaEmpresa);
     if (semillaCultivo) list = list.filter((s) => s.semilla === semillaCultivo);
     if (semillaTecnologia) list = list.filter((s) => s.tecnologia === semillaTecnologia);
     return Array.from(new Set(list.map((s) => s.variedad).filter(Boolean))).sort((a, b) =>
       a.localeCompare(b, "es", { sensitivity: "base" })
     );
-  }, [semillaEmpresa, semillaCultivo, semillaTecnologia]);
+  }, [activeSemillas, semillaEmpresa, semillaCultivo, semillaTecnologia]);
 
   // Localidades según provincia seleccionada (sugerencias autocompletables)
   const currentLocalities = useMemo(() => {
@@ -1437,8 +1510,8 @@ export const QuotationSection: React.FC = () => {
                     }}
                     className="w-full uppercase py-2 px-2.5 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-800 focus:border-campo-green focus:ring-2 focus:ring-campo-green/20 focus:outline-none shadow-2xs transition-colors"
                   >
-                    <option value="">TODAS LAS EMPRESAS ({insumoEmpresas.length})</option>
-                    {insumoEmpresas.map((emp) => (
+                    <option value="">TODAS LAS EMPRESAS ({dynamicInsumoEmpresas.length})</option>
+                    {dynamicInsumoEmpresas.map((emp) => (
                       <option key={emp} value={emp}>
                         {emp}
                       </option>
@@ -1609,8 +1682,8 @@ export const QuotationSection: React.FC = () => {
                     }}
                     className="w-full uppercase py-2 px-2.5 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-800 focus:border-campo-green focus:ring-2 focus:ring-campo-green/20 focus:outline-none shadow-2xs transition-colors"
                   >
-                    <option value="">TODOS LOS CRIADEROS ({semillaEmpresas.length})</option>
-                    {semillaEmpresas.map((emp) => (
+                    <option value="">TODOS LOS CRIADEROS ({dynamicSemillaEmpresas.length})</option>
+                    {dynamicSemillaEmpresas.map((emp) => (
                       <option key={emp} value={emp}>
                         {emp}
                       </option>

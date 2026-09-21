@@ -410,28 +410,40 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       };
 
-      // 7. Fábricas
-      const savedFab = localStorage.getItem("cd_factory_accounts");
-      if (savedFab) {
-        try {
-          setFactories(JSON.parse(savedFab));
-        } catch {
+      // 7. Fábricas y Catálogo Completo (Sincronización v2_full_sync)
+      const currentFabVer = localStorage.getItem("cd_factory_storage_version");
+      if (currentFabVer !== "v2_full_sync") {
+        localStorage.setItem("cd_factory_accounts", JSON.stringify(initialFactoryAccounts));
+        localStorage.setItem("cd_factory_products", JSON.stringify(initialFactoryProducts));
+        localStorage.setItem("cd_factory_storage_version", "v2_full_sync");
+        setFactories(initialFactoryAccounts);
+        setFactoryProducts(initialFactoryProducts);
+      } else {
+        const savedFab = localStorage.getItem("cd_factory_accounts");
+        if (savedFab) {
+          try {
+            const parsed = JSON.parse(savedFab);
+            setFactories(Array.isArray(parsed) && parsed.length >= 44 ? parsed : initialFactoryAccounts);
+          } catch {
+            setFactories(initialFactoryAccounts);
+          }
+        } else {
+          localStorage.setItem("cd_factory_accounts", JSON.stringify(initialFactoryAccounts));
           setFactories(initialFactoryAccounts);
         }
-      } else {
-        localStorage.setItem("cd_factory_accounts", JSON.stringify(initialFactoryAccounts));
-      }
 
-      // 8. Productos Fábrica
-      const savedFabProd = localStorage.getItem("cd_factory_products");
-      if (savedFabProd) {
-        try {
-          setFactoryProducts(JSON.parse(savedFabProd));
-        } catch {
+        const savedFabProd = localStorage.getItem("cd_factory_products");
+        if (savedFabProd) {
+          try {
+            const parsed = JSON.parse(savedFabProd);
+            setFactoryProducts(Array.isArray(parsed) && parsed.length >= 1000 ? parsed : initialFactoryProducts);
+          } catch {
+            setFactoryProducts(initialFactoryProducts);
+          }
+        } else {
+          localStorage.setItem("cd_factory_products", JSON.stringify(initialFactoryProducts));
           setFactoryProducts(initialFactoryProducts);
         }
-      } else {
-        localStorage.setItem("cd_factory_products", JSON.stringify(initialFactoryProducts));
       }
 
       // 9. Cotizaciones Fábrica
@@ -1119,6 +1131,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const next = [newProd, ...prev];
       try {
         localStorage.setItem("cd_factory_products", JSON.stringify(next));
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("cd_factory_products_updated"));
+        }
       } catch (e) {
         console.error(e);
       }
@@ -1140,6 +1155,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       );
       try {
         localStorage.setItem("cd_factory_products", JSON.stringify(next));
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("cd_factory_products_updated"));
+        }
       } catch (e) {
         console.error(e);
       }
@@ -1152,6 +1170,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const next = prev.filter((p) => p.id !== id);
       try {
         localStorage.setItem("cd_factory_products", JSON.stringify(next));
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("cd_factory_products_updated"));
+        }
       } catch (e) {
         console.error(e);
       }

@@ -189,6 +189,10 @@ export interface FactoryProduct {
   descripcion?: string;
   fechaActualizacion: string;
   activoEnPortal: boolean;
+  cultivoSemilla?: string;
+  variedadSemilla?: string;
+  tecnologiaSemilla?: string;
+  caracteristicasSemilla?: string;
 }
 
 // 3. SECCIÓN: COTIZACIONES INTERMEDIADAS & GESTIÓN CON LUGAR DE ENTREGA
