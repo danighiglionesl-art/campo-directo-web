@@ -4,13 +4,13 @@ import { getProductImage } from "./factoryData";
 
 export const allInsumos: InsumoItem[] = (quotationData.insumos as InsumoItem[]).map((i) => ({
   ...i,
-  imagenUrl: getProductImage(i.categoria, "Insumos"),
+  imagenUrl: "",
   presentacion: "Bidón x 20 Lts / Estándar",
 }));
 
 export const allSemillas: SemillaItem[] = (quotationData.semillas as SemillaItem[]).map((s) => ({
   ...s,
-  imagenUrl: getProductImage(s.semilla, "Semillas"),
+  imagenUrl: "",
   presentacion: "Bolsa x 40 kg / Big Bag",
 }));
 

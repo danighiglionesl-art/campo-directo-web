@@ -50,6 +50,7 @@ import { triggerGoogleAuth } from "@/utils/googleAuth";
 import { ClientRecoveryModal, RecoveryTab } from "@/components/portal/ClientRecoveryModal";
 import { FactoryProduct } from "@/types/admin";
 import { getProductImage } from "@/data/factoryData";
+import { ProcessImageIcon } from "@/components/ui/ProcessImageIcon";
 import {
   allInsumos,
   allSemillas,

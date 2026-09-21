@@ -62,20 +62,17 @@ export const FactoryDashboardView: React.FC = () => {
   const tabs: {
     id: FactoryTab;
     label: string;
-    number: string;
     icon: React.ComponentType<{ className?: string }>;
     count?: number;
     badgeColor?: string;
   }[] = [
     {
       id: "mis-datos",
-      number: "1",
       label: "Mis Datos",
       icon: User,
     },
     {
       id: "mis-productos",
-      number: "2",
       label: "Mis Productos",
       icon: Package,
       count: productsCount,
@@ -83,7 +80,6 @@ export const FactoryDashboardView: React.FC = () => {
     },
     {
       id: "cotizaciones",
-      number: "3",
       label: "Cotizaciones",
       icon: Inbox,
       count: pendingQuotesCount,
@@ -91,7 +87,6 @@ export const FactoryDashboardView: React.FC = () => {
     },
     {
       id: "ventas",
-      number: "4",
       label: "Ventas",
       icon: Truck,
       count: transitSalesCount,
@@ -99,7 +94,6 @@ export const FactoryDashboardView: React.FC = () => {
     },
     {
       id: "cuenta-corriente",
-      number: "5",
       label: "Cuenta Corriente",
       icon: DollarSign,
     },
@@ -146,14 +140,11 @@ export const FactoryDashboardView: React.FC = () => {
                     Portal Fábrica
                   </span>
                   <span className="text-xs text-slate-500 hidden md:inline">
-                    Gestión Integral Mayorista
+                    Gestión Integral Fábrica
                   </span>
                 </div>
                 <div className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-1.5 mt-0.5">
                   <span>{currentEmpresa}</span>
-                  <span className="text-xs font-normal text-slate-500 hidden sm:inline">
-                    (Empresa Vinculada)
-                  </span>
                 </div>
               </div>
             </div>
@@ -209,7 +200,7 @@ export const FactoryDashboardView: React.FC = () => {
           </div>
 
           {/* Horizontal Navigation Tabs */}
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-2 -mb-px border-t border-slate-100">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2.5 -mb-px border-t border-slate-100">
             {tabs.map((t) => {
               const Icon = t.icon;
               const isActive = factoryActiveTab === t.id;
@@ -218,26 +209,21 @@ export const FactoryDashboardView: React.FC = () => {
                 <button
                   key={t.id}
                   onClick={() => setFactoryActiveTab(t.id)}
-                  className={`flex items-center gap-2 px-3.5 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
+                  className={`flex items-center gap-2.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap cursor-pointer ${
                     isActive
-                      ? "bg-emerald-700 text-white shadow-sm"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      ? "bg-slate-900 text-white shadow-md ring-2 ring-emerald-400"
+                      : "bg-emerald-700 hover:bg-emerald-600 text-white shadow-xs"
                   }`}
                 >
-                  <span
-                    className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold ${
-                      isActive ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
-                    }`}
-                  >
-                    {t.number}
-                  </span>
-                  <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-slate-500"}`} />
+                  <Icon className={`w-5 h-5 shrink-0 ${isActive ? "text-emerald-400" : "text-white"}`} />
                   <span>{t.label}</span>
 
                   {t.count !== undefined && t.count > 0 && (
                     <span
-                      className={`text-[11px] font-bold px-1.5 py-0.2 rounded-full ${
-                        isActive ? "bg-white text-emerald-900" : t.badgeColor || "bg-slate-200 text-slate-700"
+                      className={`text-[11px] font-black px-2 py-0.5 rounded-full ${
+                        isActive
+                          ? "bg-emerald-500 text-white"
+                          : "bg-white text-emerald-900 shadow-2xs"
                       }`}
                     >
                       {t.count}

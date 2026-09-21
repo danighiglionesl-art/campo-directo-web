@@ -22,6 +22,7 @@ import {
 import { useAdmin } from "@/context/AdminContext";
 import { FactoryProduct } from "@/types/admin";
 import { insumoCultivos } from "@/data/quotationHelper";
+import { ProcessImageIcon } from "@/components/ui/ProcessImageIcon";
 
 const CATEGORIAS_INSUMOS = [
   "HERBICIDA",
@@ -252,9 +253,6 @@ export const FactoryProductsTab: React.FC = () => {
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full bg-campo-green-100 text-campo-green-800 text-xs font-black uppercase tracking-wider">
-              Sección 2
-            </span>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">
               Mis Productos ({myProducts.length})
             </h1>
@@ -323,13 +321,27 @@ export const FactoryProductsTab: React.FC = () => {
             >
               <div>
                 {/* Imagen del Producto */}
-                <div className="relative w-full h-44 bg-slate-100 overflow-hidden group">
-                  <Image
-                    src={prod.imagenUrl || "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&w=600&q=80"}
-                    alt={prod.nombre}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                <div className="relative w-full h-44 bg-white overflow-hidden group flex items-center justify-center border-b border-slate-100">
+                  {prod.imagenUrl && !prod.imagenUrl.includes("unsplash.com") ? (
+                    <Image
+                      src={prod.imagenUrl}
+                      alt={prod.nombre}
+                      fill
+                      className="object-contain p-2.5 group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-emerald-50/30 p-3 select-none">
+                      <div className="w-10 h-10 rounded-xl bg-white shadow-2xs border border-emerald-100/80 flex items-center justify-center text-campo-green mb-1.5 group-hover:scale-105 transition-transform">
+                        <ProcessImageIcon className="w-6 h-6 text-campo-green" />
+                      </div>
+                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-600">
+                        IMAGEN EN PROCESO
+                      </span>
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-campo-green/90 mt-0.5">
+                        CAMPO DIRECTO
+                      </span>
+                    </div>
+                  )}
                   <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-900/80 text-white backdrop-blur-md">
                       {prod.rubro}
@@ -443,10 +455,10 @@ export const FactoryProductsTab: React.FC = () => {
 
             {/* Formulario */}
             <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-              {/* 2a. Rubro */}
+              {/* Rubro */}
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                  2a. Rubro Comercial *
+                  Rubro Comercial *
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -484,10 +496,10 @@ export const FactoryProductsTab: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* 2b. Nombre Comercial */}
+                {/* Nombre Comercial */}
                 <div>
                   <label className="block text-xs font-bold text-slate-800 mb-1">
-                    2b. Nombre Comercial / Producto *
+                    Nombre Comercial / Producto *
                   </label>
                   <input
                     type="text"
@@ -499,10 +511,10 @@ export const FactoryProductsTab: React.FC = () => {
                   />
                 </div>
 
-                {/* 2c. Categoría */}
+                {/* Categoría */}
                 <div>
                   <label className="block text-xs font-bold text-slate-800 mb-1">
-                    2c. Categoría *
+                    Categoría *
                   </label>
                   <select
                     value={categoria}
@@ -519,10 +531,10 @@ export const FactoryProductsTab: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* 2d. Principio Activo */}
+                {/* Principio Activo */}
                 <div>
                   <label className="block text-xs font-bold text-slate-800 mb-1">
-                    2d. Principio Activo o Tecnología *
+                    Principio Activo o Tecnología *
                   </label>
                   <input
                     type="text"
@@ -549,11 +561,11 @@ export const FactoryProductsTab: React.FC = () => {
                 </div>
               </div>
 
-              {/* 2e. Principales Cultivos (Lista Preseleccionable) */}
+              {/* Principales Cultivos (Lista Preseleccionable) */}
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
-                    2e. Principales Cultivos (Seleccioná los aplicables) *
+                    Principales Cultivos (Seleccioná los aplicables) *
                   </label>
                   <span className="text-[11px] text-slate-500">
                     {selectedCultivos.length} seleccionados
@@ -581,15 +593,15 @@ export const FactoryProductsTab: React.FC = () => {
                 </div>
               </div>
 
-              {/* 2f. Imagen del Producto con Especificaciones de Tamaño y Formato */}
+              {/* Imagen del Producto con Especificaciones de Tamaño y Formato */}
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
-                    2f. Imagen del Producto (Vinculada al Portal Web)
+                    Imagen del Producto (Vinculada al Portal Web y Tu Cotizador)
                   </label>
                   {/* Especificaciones requeridas */}
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    <strong>Especificaciones:</strong> Formato JPG, PNG o WEBP. Proporción cuadrada 1:1 recomendada (mínimo 600x600 px, óptimo <strong>800x800 px</strong>). Peso máximo: 2.5 MB.
+                  <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                    <strong>Tamaño y formato recomendado:</strong> Proporción cuadrada <strong>1:1</strong> (mínimo <strong>600 x 600 px</strong>, óptimo <strong>800 x 800 px</strong>) o vertical, con el envase centrado sobre fondo blanco o transparente (PNG, JPG o WEBP). El sistema la muestra completa y la optimiza automáticamente.
                   </p>
                 </div>
 
@@ -603,13 +615,22 @@ export const FactoryProductsTab: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
                   {/* Preview de la Imagen */}
                   <div className="sm:col-span-4 flex flex-col items-center">
-                    <div className="relative w-28 h-28 rounded-2xl border border-slate-300 overflow-hidden bg-white shadow-xs">
-                      <Image
-                        src={imagenUrl || "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&w=600&q=80"}
-                        alt="Vista previa"
-                        fill
-                        className="object-cover"
-                      />
+                    <div className="relative w-28 h-28 rounded-2xl border border-slate-300 overflow-hidden bg-white shadow-xs flex items-center justify-center">
+                      {imagenUrl && !imagenUrl.includes("unsplash.com") ? (
+                        <Image
+                          src={imagenUrl}
+                          alt="Vista previa"
+                          fill
+                          className="object-contain p-1.5"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-emerald-50/30 p-2 text-center select-none">
+                          <ProcessImageIcon className="w-5 h-5 text-campo-green mb-0.5" />
+                          <span className="text-[8px] font-black text-slate-500 uppercase leading-none">
+                            EN PROCESO
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <span className="text-[10px] text-slate-400 mt-1 font-mono">
                       {imagenFormato}

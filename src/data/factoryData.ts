@@ -796,7 +796,7 @@ const insumoProducts: FactoryProduct[] = (quotationData.insumos as InsumoItem[])
   cultivos: ins.cultivosPrincipales
     ? ins.cultivosPrincipales.split(",").map((c: string) => c.trim().toUpperCase()).filter(Boolean)
     : ["SOJA", "MAÍZ"],
-  imagenUrl: getProductImage(ins.categoria, "Insumos"),
+  imagenUrl: "",
   imagenFormato: "JPG / PNG (800x800 px)",
   presentacion: "Bidón x 20 Lts / Estándar",
   descripcion: `${ins.producto} (${ins.empresa}) - ${ins.categoria}. Principio Activo: ${ins.principioActivo}. Recomendado para: ${ins.cultivosPrincipales}.`,
@@ -813,7 +813,7 @@ const semillaProducts: FactoryProduct[] = (quotationData.semillas as SemillaItem
   categoria: `SEMILLA ${sem.semilla}`,
   principioActivo: sem.tecnologia || sem.caracteristicas || "TECNOLOGÍA CERTIFICADA",
   cultivos: [sem.semilla.toUpperCase()],
-  imagenUrl: getProductImage(`SEMILLA ${sem.semilla}`, "Semillas"),
+  imagenUrl: "",
   imagenFormato: "JPG / PNG (800x800 px)",
   presentacion: "Bolsa x 40 kg / Big Bag",
   descripcion: `Semilla fiscalizada de ${sem.semilla} variedad ${sem.variedad} (${sem.empresa}). Tecnología: ${sem.tecnologia}. ${sem.caracteristicas || ""}`,

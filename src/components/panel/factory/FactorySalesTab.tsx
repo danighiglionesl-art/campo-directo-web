@@ -96,11 +96,8 @@ export const FactorySalesTab: React.FC = () => {
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full bg-campo-green-100 text-campo-green-800 text-xs font-black uppercase tracking-wider">
-              Sección 4
-            </span>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-              4. Gestión de Ventas & Documentación Oficial
+              Gestión de Ventas & Documentación Oficial
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
@@ -108,32 +105,32 @@ export const FactorySalesTab: React.FC = () => {
           </p>
         </div>
 
-        {/* Selector de Subpestañas 4a y 4b */}
+        {/* Selector de Subpestañas */}
         <div className="inline-flex p-1 rounded-2xl bg-slate-100 border border-slate-200">
           <button
             type="button"
             onClick={() => setActiveSubTab("TRANSITO")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activeSubTab === "TRANSITO"
                 ? "bg-white text-slate-900 shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <Truck className="w-4 h-4 text-amber-600" />
-            <span>4a. Ventas en Tránsito ({transitSales.length})</span>
+            <span>Ventas en Tránsito ({transitSales.length})</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveSubTab("ENTREGADAS")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activeSubTab === "ENTREGADAS"
                 ? "bg-white text-slate-900 shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>4b. Ventas Entregadas ({deliveredSales.length})</span>
+            <span>Ventas Entregadas ({deliveredSales.length})</span>
           </button>
         </div>
       </div>

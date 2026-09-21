@@ -127,11 +127,8 @@ export const FactoryQuotationsTab: React.FC = () => {
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full bg-campo-green-100 text-campo-green-800 text-xs font-black uppercase tracking-wider">
-              Sección 3
-            </span>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-              3. Cotizaciones Recibidas & Gestión de Entrega
+              Cotizaciones Recibidas & Gestión de Entrega
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
@@ -180,7 +177,7 @@ export const FactoryQuotationsTab: React.FC = () => {
                 <th className="py-3 px-4">N° Cotización & Fecha</th>
                 <th className="py-3 px-4">Cliente Intermediado</th>
                 <th className="py-3 px-4">Productos Solicitados</th>
-                <th className="py-3 px-4">3b. Lugar de Entrega Georreferenciado</th>
+                <th className="py-3 px-4">Lugar de Entrega Georreferenciado</th>
                 <th className="py-3 px-4">Cotización Fábrica (USD)</th>
                 <th className="py-3 px-4">Estado</th>
                 <th className="py-3 px-4 text-right">Acción</th>
@@ -349,12 +346,12 @@ export const FactoryQuotationsTab: React.FC = () => {
                 </div>
               ) : (
                 <form onSubmit={handleSubmitQuote} className="space-y-4">
-                  {/* Ficha de Entrega (3b) */}
+                  {/* Ficha de Entrega */}
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-slate-800">
                         <MapPin className="w-4 h-4 text-rose-500" />
-                        <span>3b. Lugar de Entrega Georreferenciado</span>
+                        <span>Lugar de Entrega Georreferenciado</span>
                       </div>
                       {selectedQuote.lugarEntrega.linkMaps && (
                         <a

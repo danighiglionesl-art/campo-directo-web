@@ -287,7 +287,7 @@ export const FactoryAccountTab: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
-                Sección 5 • Finanzas Mayoristas
+                Finanzas Fábrica
               </span>
               <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
                 <Building2 className="w-3.5 h-3.5" />
