@@ -61,8 +61,13 @@ const ClientPortalModalContent: React.FC = () => {
     deleteEstablishment,
   } = useClientAuth();
 
-  // Modo de Autenticación: Login o Primer Ingreso (Registro)
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  // Modo de Autenticación: Login o Primer Ingreso (selección de credenciales / Google)
+  const [authMode, setAuthMode] = useState<"login" | "primer-ingreso-creds">("login");
+
+  // Control de pantalla "Registro de Cliente" (aparece recién tras haber ingresado con credenciales o Google)
+  const [isClientRegistrationStep, setIsClientRegistrationStep] = useState(false);
+  const [isGoogleUser, setIsGoogleUser] = useState(false);
+  const [pendingPassword, setPendingPassword] = useState("");
 
   // Estados locales de Login
   const [loginId, setLoginId] = useState("");
@@ -71,9 +76,16 @@ const ClientPortalModalContent: React.FC = () => {
   const [loginError, setLoginError] = useState("");
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-  // Estados locales de Primer Ingreso (Registro)
+  // Estados locales de Primer Ingreso (selección previa de credenciales)
+  const [primerUsuario, setPrimerUsuario] = useState("");
+  const [primerPassword, setPrimerPassword] = useState("");
+  const [primerConfirmPassword, setPrimerConfirmPassword] = useState("");
+  const [showPrimerPassword, setShowPrimerPassword] = useState(false);
+
+  // Estados locales de Registro de Cliente (Datos de la Explotación)
   const [regCuit, setRegCuit] = useState("");
   const [regRazonSocial, setRegRazonSocial] = useState("");
+  const [regCondicionIva, setRegCondicionIva] = useState<"Responsable Inscripto" | "Monotributo" | "Exento" | "Consumidor Final">("Responsable Inscripto");
   const [regApellidos, setRegApellidos] = useState("");
   const [regNombres, setRegNombres] = useState("");
   const [regEmail, setRegEmail] = useState("");
@@ -82,9 +94,6 @@ const ClientPortalModalContent: React.FC = () => {
   const [regLocalidad, setRegLocalidad] = useState("");
   const [regCampo, setRegCampo] = useState("");
   const [regUsuario, setRegUsuario] = useState("");
-  const [regPassword, setRegPassword] = useState("");
-  const [regConfirmPassword, setRegConfirmPassword] = useState("");
-  const [showRegPassword, setShowRegPassword] = useState(false);
   const [isCuitValidating, setIsCuitValidating] = useState(false);
   const [cuitNotice, setCuitNotice] = useState<{ success: boolean; message: string } | null>(null);
   const [regError, setRegError] = useState("");
@@ -164,8 +173,11 @@ const ClientPortalModalContent: React.FC = () => {
       setAuthMode("login");
       setLoginError("");
       setRegError("");
+      if (!isAuthenticated) {
+        setIsClientRegistrationStep(false);
+      }
     }
-  }, [isPortalOpen]);
+  }, [isPortalOpen, isAuthenticated]);
 
   // Si no está abierto, no renderizar nada
   if (!isPortalOpen) return null;
@@ -176,15 +188,137 @@ const ClientPortalModalContent: React.FC = () => {
     const res = await login(loginId, loginPassword);
     if (!res.success) {
       setLoginError(res.error || "Usuario o contraseña inválidos");
+      return;
     }
+    setIsClientRegistrationStep(false);
+  };
+
+  const handlePrimerIngresoClick = () => {
+    setLoginError("");
+    setRegError("");
+
+    const u = loginId.trim();
+    const p = loginPassword;
+
+    // Si ya completó usuario y contraseña en los campos visibles:
+    if (u && p.length >= 6) {
+      const cleanUser = u.toLowerCase();
+      const email = cleanUser.includes("@") ? cleanUser : "";
+      const userPart = cleanUser.includes("@") ? cleanUser.split("@")[0] : cleanUser;
+      setRegUsuario(userPart);
+      if (email) setRegEmail(email);
+      setPendingPassword(p);
+      setIsGoogleUser(false);
+
+      // Iniciar sesión provisional con estas credenciales
+      const tempUser = {
+        id: `cli-${Date.now()}`,
+        usuario: userPart,
+        razonSocial: "",
+        apellidos: "",
+        nombres: "",
+        cuit: "",
+        condicionIva: "Responsable Inscripto" as const,
+        email: email,
+        telefono: "",
+        whatsapp: "",
+        provincia: "Córdoba",
+        localidad: "",
+        direccion: "",
+        actividadPrincipal: "Producción Agropecuaria",
+      };
+      registerClient(tempUser);
+      setIsClientRegistrationStep(true);
+    } else {
+      // Si no completó ambos o contraseña < 6, pasar a pantalla de elección de credenciales
+      if (u) setPrimerUsuario(u);
+      if (p) setPrimerPassword(p);
+      setAuthMode("primer-ingreso-creds");
+    }
+  };
+
+  const handlePrimerIngresoCredsSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError("");
+    setRegError("");
+
+    if (!primerUsuario.trim()) {
+      setRegError("Por favor ingresá un nombre de usuario o correo electrónico.");
+      return;
+    }
+    if (primerPassword.length < 6) {
+      setRegError("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+    if (primerPassword !== primerConfirmPassword) {
+      setRegError("Las contraseñas no coinciden.");
+      return;
+    }
+
+    const cleanUser = primerUsuario.trim().toLowerCase();
+    const email = cleanUser.includes("@") ? cleanUser : "";
+    const userPart = cleanUser.includes("@") ? cleanUser.split("@")[0] : cleanUser;
+
+    setRegUsuario(userPart);
+    if (email) setRegEmail(email);
+    setPendingPassword(primerPassword);
+    setIsGoogleUser(false);
+
+    // Iniciar sesión provisional con estas credenciales
+    const tempUser = {
+      id: `cli-${Date.now()}`,
+      usuario: userPart,
+      razonSocial: "",
+      apellidos: "",
+      nombres: "",
+      cuit: "",
+      condicionIva: "Responsable Inscripto" as const,
+      email: email,
+      telefono: "",
+      whatsapp: "",
+      provincia: "Córdoba",
+      localidad: "",
+      direccion: "",
+      actividadPrincipal: "Producción Agropecuaria",
+    };
+    registerClient(tempUser);
+    setIsClientRegistrationStep(true);
   };
 
   const handleGoogleLogin = async () => {
     try {
       setIsGoogleLoading(true);
       setLoginError("");
+      setRegError("");
       const googleUser = await triggerGoogleAuth();
-      loginWithGoogle(googleUser);
+      const loginRes = loginWithGoogle(googleUser);
+
+      const existingUser = loginRes.user;
+      const cleanCuit = (existingUser?.cuit || "").replace(/\D/g, "");
+      const isComplete =
+        cleanCuit.length === 11 &&
+        cleanCuit !== "20000000000" &&
+        Boolean(existingUser?.razonSocial && existingUser.razonSocial !== "PRODUCTOR AGROPECUARIO") &&
+        Boolean(existingUser?.telefono || existingUser?.whatsapp);
+
+      if (!isComplete) {
+        // Primer ingreso con Google: recién ahí aparece el Registro de Cliente
+        const nombres = (googleUser.given_name || googleUser.name?.split(" ")[0] || "").toUpperCase();
+        const apellidos = (googleUser.family_name || googleUser.name?.split(" ").slice(1).join(" ") || "").toUpperCase();
+        const email = googleUser.email.toLowerCase();
+
+        setRegEmail(email);
+        setRegNombres(nombres);
+        setRegApellidos(apellidos);
+        setRegRazonSocial(googleUser.name?.toUpperCase() || `${apellidos} ${nombres}`.trim());
+        setRegUsuario(email.split("@")[0].toLowerCase());
+        setPendingPassword("");
+        setIsGoogleUser(true);
+
+        setIsClientRegistrationStep(true);
+      } else {
+        setIsClientRegistrationStep(false);
+      }
     } catch (err: any) {
       console.warn("Google Auth cancelado o con error:", err);
       const msg = err?.message || "";
@@ -271,6 +405,10 @@ const ClientPortalModalContent: React.FC = () => {
       setRegError("El CUIT ingresado no es válido según el dígito verificador oficial de AFIP.");
       return;
     }
+    if (!regRazonSocial.trim()) {
+      setRegError("Por favor completá la Razón Social o Titular de la Explotación.");
+      return;
+    }
     if (!regEmail.trim() || !regEmail.includes("@")) {
       setRegError("Por favor ingresá un correo electrónico válido.");
       return;
@@ -279,12 +417,8 @@ const ClientPortalModalContent: React.FC = () => {
       setRegError("Por favor ingresá un número de WhatsApp o teléfono de contacto.");
       return;
     }
-    if (!regPassword || regPassword.length < 6) {
-      setRegError("La contraseña debe contener al menos 6 caracteres.");
-      return;
-    }
-    if (regPassword !== regConfirmPassword) {
-      setRegError("Las contraseñas no coinciden.");
+    if (!regLocalidad.trim()) {
+      setRegError("Por favor ingresá tu localidad.");
       return;
     }
 
@@ -295,6 +429,7 @@ const ClientPortalModalContent: React.FC = () => {
     ).toUpperCase();
 
     const usuarioFinal = (
+      user?.usuario ||
       regUsuario.trim() ||
       regEmail.trim().split("@")[0] ||
       `productor_${cleanCuit.slice(2, 10)}`
@@ -318,7 +453,8 @@ const ClientPortalModalContent: React.FC = () => {
           localidad: regLocalidad.trim().toUpperCase() || "CENTRO",
           campoNombre: regCampo.trim() || "CAMPO PRINCIPAL",
           usuario: usuarioFinal,
-          password: regPassword,
+          password: pendingPassword || "GoogleSSO",
+          authProvider: isGoogleUser ? "google" : "local",
         }),
       });
 
@@ -330,14 +466,14 @@ const ClientPortalModalContent: React.FC = () => {
       }
 
       // Iniciar sesión y sincronizar perfil en contexto local
-      registerClient({
-        id: data.user?.id || `cli-${Date.now()}`,
+      const updatedProfile = {
+        id: data.user?.id || user?.id || `cli-${Date.now()}`,
         usuario: usuarioFinal,
         razonSocial: titular,
         apellidos: regApellidos.trim().toUpperCase() || titular.split(" ")[0],
         nombres: regNombres.trim().toUpperCase() || titular.split(" ").slice(1).join(" ") || "TITULAR",
         cuit: regCuit.trim(),
-        condicionIva: "Responsable Inscripto",
+        condicionIva: regCondicionIva,
         email: regEmail.trim().toLowerCase(),
         telefono: regWhatsapp.trim(),
         whatsapp: regWhatsapp.trim(),
@@ -345,7 +481,10 @@ const ClientPortalModalContent: React.FC = () => {
         localidad: regLocalidad.trim().toUpperCase() || "CENTRO",
         direccion: regCampo.trim() || "Tranquera de Campo",
         actividadPrincipal: "Producción Agropecuaria",
-      });
+      };
+
+      registerClient(updatedProfile);
+      updateProfile(updatedProfile);
 
       // Añadir establecimiento inicial
       if (regCampo.trim()) {
@@ -361,6 +500,8 @@ const ClientPortalModalContent: React.FC = () => {
           esPrincipal: true,
         });
       }
+
+      setIsClientRegistrationStep(false);
 
       // Cerrar modal de clientes
       closePortal();
@@ -431,14 +572,14 @@ const ClientPortalModalContent: React.FC = () => {
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
       <div
         ref={modalRef}
-        className={`relative w-full ${authMode === "register" ? "max-w-3xl" : "max-w-4xl"} bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[92vh] max-h-[820px] animate-in fade-in zoom-in-95 duration-200`}
+        className={`relative w-full ${(!isAuthenticated || isClientRegistrationStep) ? (isClientRegistrationStep ? "max-w-3xl" : "max-w-md") : "max-w-4xl"} bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[92vh] max-h-[820px] animate-in fade-in zoom-in-95 duration-200`}
       >
         {/* ========================================================================= */}
-        {/* VISTA 1: INICIAR SESIÓN O PRIMER INGRESO (SI NO ESTÁ AUTENTICADO)         */}
+        {/* VISTA 1: LOGIN, PRIMER INGRESO (CREDENCIALES/GOOGLE) O REGISTRO DE CLIENTE */}
         {/* ========================================================================= */}
-        {!isAuthenticated ? (
+        {!isAuthenticated || isClientRegistrationStep ? (
           <div className="flex-1 flex flex-col justify-between overflow-y-auto p-5 sm:p-8">
-            {/* Header Login / Registro */}
+            {/* Header Modal */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="relative w-10 h-10 shrink-0">
@@ -451,7 +592,11 @@ const ClientPortalModalContent: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                    {authMode === "login" ? (
+                    {isClientRegistrationStep ? (
+                      <>
+                        Registro de <span className="text-campo-green">Cliente</span>
+                      </>
+                    ) : authMode === "login" ? (
                       <>
                         Acceso a <span className="text-campo-green">Clientes</span>
                       </>
@@ -462,9 +607,11 @@ const ClientPortalModalContent: React.FC = () => {
                     )}
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-500 font-medium">
-                    {authMode === "login"
+                    {isClientRegistrationStep
+                      ? "Completá tus datos de explotación por única vez para cotizar y comprar directo"
+                      : authMode === "login"
                       ? "Portal exclusivo de autogestión para productores y empresas"
-                      : "Registrate en segundos para cotizar y comprar de forma directa"}
+                      : "Elegí tu usuario y contraseña para ingresar por primera vez, o continuá con Google"}
                   </p>
                 </div>
               </div>
@@ -478,178 +625,47 @@ const ClientPortalModalContent: React.FC = () => {
               </button>
             </div>
 
-            {authMode === "login" ? (
-              /* =================================================================== */
-              /* SUBVISTA A: FORMULARIO DE LOGIN                                     */
-              /* =================================================================== */
-              <div className="max-w-md w-full mx-auto my-auto py-5">
-                <div className="bg-slate-50 p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-xs">
-                  <div className="text-center mb-6">
-                    <div className="w-12 h-12 bg-campo-green/10 text-campo-green rounded-full flex items-center justify-center mx-auto mb-3 shadow-xs">
-                      <Lock className="w-6 h-6" />
+            {/* =================================================================== */}
+            {/* CASO 1: REGISTRO DE CLIENTE (RECIÉN TRAS INGRESAR CON CREDS/GOOGLE) */}
+            {/* =================================================================== */}
+            {isClientRegistrationStep ? (
+              <div className="max-w-2xl w-full mx-auto my-auto py-2">
+                <div className="bg-slate-50 p-5 sm:p-7 rounded-2xl border border-slate-200/80 shadow-xs">
+                  {/* Badge de sesión iniciada */}
+                  <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl mb-4">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-emerald-900">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>
+                        Ingresaste como: <strong className="text-emerald-800">{user?.usuario || regUsuario || user?.email || regEmail}</strong>
+                        {isGoogleUser && (
+                          <span className="ml-1.5 px-2 py-0.5 text-[10px] font-bold bg-white text-slate-700 rounded-md border border-slate-200">
+                            Google SSO
+                          </span>
+                        )}
+                      </span>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-900">Ingresá a tu cuenta</h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Gestioná tus datos, establecimientos y cotizaciones directas
-                    </p>
-                  </div>
-
-                  {loginError && (
-                    <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      <span>{loginError}</span>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleLoginSubmit} className="space-y-4">
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                          Usuario, CUIT o Correo
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRecoveryInitialTab("usuario");
-                            setIsRecoveryOpen(true);
-                          }}
-                          className="text-[11px] font-semibold text-campo-green hover:underline hover:text-campo-green-600 transition-colors"
-                        >
-                          ¿Olvidaste tu usuario?
-                        </button>
-                      </div>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={loginId}
-                          onChange={(e) => setLoginId(e.target.value)}
-                          placeholder="Ej: agroperez o 20-33445566-7"
-                          className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
-                        />
-                        <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                          Contraseña
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRecoveryInitialTab("password");
-                            setIsRecoveryOpen(true);
-                          }}
-                          className="text-[11px] font-semibold text-campo-green hover:underline hover:text-campo-green-600 transition-colors"
-                        >
-                          ¿Olvidaste tu contraseña?
-                        </button>
-                      </div>
-                      <div className="relative">
-                        <input
-                          type={showLoginPassword ? "text" : "password"}
-                          value={loginPassword}
-                          onChange={(e) => setLoginPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
-                        />
-                        <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                        <button
-                          type="button"
-                          onClick={() => setShowLoginPassword(!showLoginPassword)}
-                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                          title={showLoginPassword ? "Ocultar" : "Mostrar"}
-                        >
-                          {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full py-3 px-4 bg-campo-green hover:bg-campo-green-600 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 mt-2 cursor-pointer"
-                    >
-                      <span>INGRESAR A MI CUENTA</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-
-                    {/* Botón Primer Ingreso (Rectángulo exactamente igual debajo) */}
                     <button
                       type="button"
                       onClick={() => {
-                        setAuthMode("register");
-                        setLoginError("");
-                        setRegError("");
+                        logout();
+                        setIsClientRegistrationStep(false);
+                        setAuthMode("login");
                       }}
-                      className="w-full py-3 px-4 bg-white hover:bg-emerald-50 text-campo-green hover:text-campo-green-700 border-2 border-campo-green hover:border-campo-green-600 text-sm font-bold rounded-xl shadow-2xs hover:shadow-xs transition-all duration-200 flex items-center justify-center gap-2 mt-2.5 uppercase tracking-wider cursor-pointer"
+                      className="text-[11px] font-semibold text-slate-500 hover:text-red-600 transition-colors"
                     >
-                      <UserPlus className="w-4 h-4" />
-                      <span>PRIMER INGRESO</span>
+                      Cambiar cuenta
                     </button>
-                  </form>
-
-                  <div className="relative my-4 text-center">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-200" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-slate-50 px-2 text-slate-400 font-bold">O también</span>
-                    </div>
                   </div>
 
-                  {/* Botón Continuar con Google */}
-                  <button
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    disabled={isGoogleLoading}
-                    className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-2.5 uppercase disabled:opacity-50"
-                  >
-                    {isGoogleLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-campo-green" />
-                    ) : (
-                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                        <path
-                          fill="#4285F4"
-                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                        />
-                        <path
-                          fill="#EA4335"
-                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                        />
-                      </svg>
-                    )}
-                    <span>
-                      {isGoogleLoading
-                        ? "CONECTANDO CON GOOGLE..."
-                        : "CONTINUAR CON GOOGLE"}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* =================================================================== */
-              /* SUBVISTA B: REGISTRO PRIMER INGRESO                                 */
-              /* =================================================================== */
-              <div className="max-w-2xl w-full mx-auto my-auto py-3">
-                <div className="bg-slate-50 p-5 sm:p-7 rounded-2xl border border-slate-200/80 shadow-xs">
                   <div className="text-center mb-5">
-                    <div className="w-12 h-12 bg-campo-green/10 text-campo-green rounded-full flex items-center justify-center mx-auto mb-2.5 shadow-xs">
-                      <UserPlus className="w-6 h-6" />
+                    <div className="w-11 h-11 bg-campo-green/10 text-campo-green rounded-full flex items-center justify-center mx-auto mb-2 shadow-xs">
+                      <Building2 className="w-5 h-5" />
                     </div>
                     <h3 className="text-lg sm:text-xl font-bold text-slate-900">
-                      Registro de Cliente · Primer Ingreso
+                      Datos de Registro de Cliente
                     </h3>
-                    <p className="text-xs text-slate-500 mt-1 max-w-lg mx-auto">
-                      Completá tus datos una sola vez. Al registrarte quedarás autenticado y continuarás directo al bloque Tu Cotización.
+                    <p className="text-xs text-slate-500 mt-0.5 max-w-lg mx-auto">
+                      Completá los datos de tu explotación o empresa agropecuaria para cotizar y comprar directo de fábrica.
                     </p>
                   </div>
 
@@ -718,8 +734,23 @@ const ClientPortalModalContent: React.FC = () => {
                       />
                     </div>
 
-                    {/* Apellidos y Nombres */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Condición IVA, Apellidos y Nombres */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Condición IVA *
+                        </label>
+                        <select
+                          value={regCondicionIva}
+                          onChange={(e) => setRegCondicionIva(e.target.value as any)}
+                          className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                        >
+                          <option value="Responsable Inscripto">Responsable Inscripto</option>
+                          <option value="Monotributo">Monotributo</option>
+                          <option value="Exento">Exento</option>
+                          <option value="Consumidor Final">Consumidor Final</option>
+                        </select>
+                      </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                           Apellidos *
@@ -826,117 +857,359 @@ const ClientPortalModalContent: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Credenciales de Acceso */}
-                    <div className="p-3.5 bg-white rounded-xl border border-slate-200/90 space-y-2.5">
-                      <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
-                        <Lock className="w-3.5 h-3.5 text-campo-green" />
-                        <span>Tus Credenciales de Acceso para futuros ingresos</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                            Usuario
-                          </label>
-                          <input
-                            type="text"
-                            value={regUsuario}
-                            onChange={(e) => setRegUsuario(e.target.value.toLowerCase().replace(/\s+/g, ""))}
-                            placeholder="Ej: agroperez"
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all lowercase"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                            Contraseña *
-                          </label>
-                          <input
-                            type={showRegPassword ? "text" : "password"}
-                            value={regPassword}
-                            onChange={(e) => setRegPassword(e.target.value)}
-                            placeholder="Mínimo 6 carac."
-                            required
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                              Confirmar *
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => setShowRegPassword(!showRegPassword)}
-                              className="text-[10px] text-slate-400 hover:text-slate-600"
-                            >
-                              {showRegPassword ? "Ocultar" : "Ver"}
-                            </button>
-                          </div>
-                          <input
-                            type={showRegPassword ? "text" : "password"}
-                            value={regConfirmPassword}
-                            onChange={(e) => setRegConfirmPassword(e.target.value)}
-                            placeholder="Repetir contraseña"
-                            required
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Botón Enviar Registro */}
+                    {/* Botón Enviar Registro de Cliente */}
                     <button
                       type="submit"
                       disabled={isRegLoading}
-                      className="w-full py-3.5 px-4 bg-campo-green hover:bg-campo-green-600 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer disabled:opacity-50"
+                      className="w-full py-3.5 px-4 bg-campo-green hover:bg-campo-green-600 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer disabled:opacity-50 mt-2"
                     >
                       {isRegLoading ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>REGISTRANDO CUENTA...</span>
+                          <span>GUARDANDO REGISTRO...</span>
                         </>
                       ) : (
                         <>
-                          <span>CREAR MI CUENTA Y CONTINUAR A COTIZAR</span>
+                          <span>FINALIZAR REGISTRO Y CONTINUAR A COTIZAR</span>
                           <ChevronRight className="w-4 h-4" />
                         </>
                       )}
                     </button>
-
-                    <div className="text-center pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAuthMode("login");
-                          setRegError("");
-                        }}
-                        className="text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
-                      >
-                        ¿Ya tenés cuenta creada?{" "}
-                        <span className="text-campo-green font-bold hover:underline">
-                          Ingresá a tu cuenta aquí
-                        </span>
-                      </button>
-                    </div>
                   </form>
+                </div>
+              </div>
+            ) : authMode === "login" ? (
+              /* =================================================================== */
+              /* CASO 2: FORMULARIO DE LOGIN PRINCIPAL                               */
+              /* =================================================================== */
+              <div className="max-w-md w-full mx-auto my-auto py-5">
+                <div className="bg-slate-50 p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div className="text-center mb-6">
+                    <div className="w-12 h-12 bg-campo-green/10 text-campo-green rounded-full flex items-center justify-center mx-auto mb-3 shadow-xs">
+                      <Lock className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900">Ingresá a tu cuenta</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Gestioná tus datos, establecimientos y cotizaciones directas
+                    </p>
+                  </div>
+
+                  {loginError && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{loginError}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleLoginSubmit} className="space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Usuario, CUIT o Correo
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRecoveryInitialTab("usuario");
+                            setIsRecoveryOpen(true);
+                          }}
+                          className="text-[11px] font-semibold text-campo-green hover:underline hover:text-campo-green-600 transition-colors"
+                        >
+                          ¿Olvidaste tu usuario?
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={loginId}
+                          onChange={(e) => setLoginId(e.target.value)}
+                          placeholder="Ej: agroperez o 20-33445566-7"
+                          className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                        />
+                        <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Contraseña
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRecoveryInitialTab("password");
+                            setIsRecoveryOpen(true);
+                          }}
+                          className="text-[11px] font-semibold text-campo-green hover:underline hover:text-campo-green-600 transition-colors"
+                        >
+                          ¿Olvidaste tu contraseña?
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showLoginPassword ? "text" : "password"}
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                        />
+                        <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword(!showLoginPassword)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                          title={showLoginPassword ? "Ocultar" : "Mostrar"}
+                        >
+                          {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Botón Ingresar a mi cuenta */}
+                    <button
+                      type="submit"
+                      className="w-full py-3 px-4 bg-campo-green hover:bg-campo-green-600 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 mt-2 cursor-pointer"
+                    >
+                      <span>INGRESAR A MI CUENTA</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+
+                    {/* Botón Primer Ingreso (MISMO COLOR VERDE QUE INGRESAR A MI CUENTA) */}
+                    <button
+                      type="button"
+                      onClick={handlePrimerIngresoClick}
+                      className="w-full py-3 px-4 bg-campo-green hover:bg-campo-green-600 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 mt-2.5 cursor-pointer uppercase tracking-wider"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>PRIMER INGRESO</span>
+                    </button>
+                  </form>
+
+                  <div className="relative my-4 text-center">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-200" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-slate-50 px-2 text-slate-400 font-bold">O también</span>
+                    </div>
+                  </div>
+
+                  {/* Botón Continuar con Google */}
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    disabled={isGoogleLoading}
+                    className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-2.5 uppercase disabled:opacity-50"
+                  >
+                    {isGoogleLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-campo-green" />
+                    ) : (
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                        />
+                      </svg>
+                    )}
+                    <span>
+                      {isGoogleLoading
+                        ? "CONECTANDO CON GOOGLE..."
+                        : "CONTINUAR CON GOOGLE"}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* =================================================================== */
+              /* CASO 3: PRIMER INGRESO - SELECCIÓN DE CREDENCIALES O GOOGLE         */
+              /* =================================================================== */
+              <div className="max-w-md w-full mx-auto my-auto py-5">
+                <div className="bg-slate-50 p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div className="text-center mb-6">
+                    <div className="w-12 h-12 bg-campo-green/10 text-campo-green rounded-full flex items-center justify-center mx-auto mb-3 shadow-xs">
+                      <UserPlus className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900">Primer Ingreso</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Elegí tu usuario y contraseña, o continuá con Google:
+                    </p>
+                  </div>
+
+                  {regError && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{regError}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handlePrimerIngresoCredsSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Usuario deseado o Correo *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={primerUsuario}
+                          onChange={(e) => setPrimerUsuario(e.target.value)}
+                          placeholder="Ej: agroperez o juan@campo.com"
+                          required
+                          className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                        />
+                        <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Contraseña *
+                        </label>
+                        <span className="text-[11px] text-slate-400 font-medium">Mínimo 6 carac.</span>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showPrimerPassword ? "text" : "password"}
+                          value={primerPassword}
+                          onChange={(e) => setPrimerPassword(e.target.value)}
+                          placeholder="••••••••"
+                          required
+                          className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                        />
+                        <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <button
+                          type="button"
+                          onClick={() => setShowPrimerPassword(!showPrimerPassword)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                          title={showPrimerPassword ? "Ocultar" : "Mostrar"}
+                        >
+                          {showPrimerPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Confirmar Contraseña *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPrimerPassword ? "text" : "password"}
+                          value={primerConfirmPassword}
+                          onChange={(e) => setPrimerConfirmPassword(e.target.value)}
+                          placeholder="Repetir contraseña"
+                          required
+                          className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-campo-green focus:border-campo-green transition-all"
+                        />
+                        <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      </div>
+                    </div>
+
+                    {/* Botón Ingresar y completar registro */}
+                    <button
+                      type="submit"
+                      className="w-full py-3 px-4 bg-campo-green hover:bg-campo-green-600 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 mt-2.5 cursor-pointer uppercase tracking-wider"
+                    >
+                      <span>INGRESAR Y REGISTRAR MIS DATOS</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </form>
+
+                  <div className="relative my-4 text-center">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-200" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-slate-50 px-2 text-slate-400 font-bold">O también</span>
+                    </div>
+                  </div>
+
+                  {/* Botón Continuar con Google */}
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    disabled={isGoogleLoading}
+                    className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-2.5 uppercase disabled:opacity-50"
+                  >
+                    {isGoogleLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-campo-green" />
+                    ) : (
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                        />
+                      </svg>
+                    )}
+                    <span>
+                      {isGoogleLoading
+                        ? "CONECTANDO CON GOOGLE..."
+                        : "CONTINUAR CON GOOGLE"}
+                    </span>
+                  </button>
+
+                  <div className="text-center pt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode("login");
+                        setRegError("");
+                      }}
+                      className="text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                    >
+                      ¿Ya tenés cuenta creada?{" "}
+                      <span className="text-campo-green font-bold hover:underline">
+                        Ingresá a tu cuenta aquí
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Footer Login / Registro */}
+            {/* Footer Modal */}
             <div className="text-center text-xs text-slate-500 pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0">
               <span className="flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-campo-green" />
                 Conexión encriptada y protegida de Campo Directo
               </span>
               <span>
-                {authMode === "login" ? (
+                {isClientRegistrationStep ? (
+                  <span className="font-semibold text-slate-600">Paso 2 de 2: Datos de Cliente</span>
+                ) : authMode === "login" ? (
                   <>
                     ¿Primer ingreso?{" "}
                     <button
                       type="button"
                       onClick={() => {
-                        setAuthMode("register");
+                        setAuthMode("primer-ingreso-creds");
                         setLoginError("");
+                        setRegError("");
                       }}
                       className="font-bold text-campo-green hover:underline cursor-pointer"
                     >
@@ -950,6 +1223,7 @@ const ClientPortalModalContent: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setAuthMode("login");
+                        setLoginError("");
                         setRegError("");
                       }}
                       className="font-bold text-campo-green hover:underline cursor-pointer"

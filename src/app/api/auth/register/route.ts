@@ -48,7 +48,8 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!password || password.length < 6) {
+    const isGoogleAuth = body.authProvider === "google" || (!password && Boolean(email));
+    if (!isGoogleAuth && (!password || password.length < 6)) {
       return NextResponse.json(
         { error: "La contraseña debe contener al menos 6 caracteres." },
         { status: 400 }
@@ -84,8 +85,8 @@ export async function POST(request: Request) {
       email: cleanEmail,
       telefono: telefono || whatsapp || "",
       whatsapp: whatsapp || telefono || "",
-      authProvider: "local",
-      passwordHash: password,
+      authProvider: isGoogleAuth ? "google" : "local",
+      passwordHash: password || "GOOGLE_SSO_AUTH",
     });
 
     // 2. Guardar en almacén de datos del panel administrativo
