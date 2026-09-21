@@ -767,7 +767,7 @@ export const initialFactoryAccounts: FactoryAccount[] = [
 ];
 
 // Asignación de imagen agrícola de calidad según categoría técnica
-function getProductImage(category: string, rubro: "Insumos" | "Semillas"): string {
+export function getProductImage(category: string, rubro: "Insumos" | "Semillas"): string {
   const cat = (category || "").toUpperCase();
   if (rubro === "Semillas") {
     if (cat.includes("SOJA")) return "https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=600&q=80";

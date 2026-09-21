@@ -8,6 +8,8 @@ export interface InsumoItem {
   principioActivo: string;
   categoria: string;
   cultivosPrincipales: string;
+  imagenUrl?: string;
+  presentacion?: string;
 }
 
 export interface SemillaItem {
@@ -17,6 +19,8 @@ export interface SemillaItem {
   variedad: string;
   tecnologia: string;
   caracteristicas: string;
+  imagenUrl?: string;
+  presentacion?: string;
 }
 
 export interface GranosConfig {

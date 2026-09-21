@@ -157,11 +157,45 @@ export const FactoryProductsTab: React.FC = () => {
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setImagenUrl(reader.result);
-        setImagenFormato(`${file.type.split("/")[1].toUpperCase()} (${Math.round(file.size / 1024)} KB)`);
-      }
+    reader.onload = (readerEvent) => {
+      const rawDataUrl = readerEvent.target?.result;
+      if (typeof rawDataUrl !== "string") return;
+
+      const img = new window.Image();
+      img.onload = () => {
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          setImagenUrl(compressedDataUrl);
+          const approxKb = Math.round((compressedDataUrl.length * 3) / 4 / 1024);
+          setImagenFormato(`JPG optimizado (${approxKb} KB)`);
+        } else {
+          setImagenUrl(rawDataUrl);
+          setImagenFormato(`${file.type.split("/")[1].toUpperCase()} (${Math.round(file.size / 1024)} KB)`);
+        }
+      };
+      img.src = rawDataUrl;
     };
     reader.readAsDataURL(file);
   };

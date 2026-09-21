@@ -1,8 +1,19 @@
 import quotationData from "./quotationData.json";
 import { InsumoItem, SemillaItem, GranosConfig } from "@/types/quotation";
+import { getProductImage } from "./factoryData";
 
-export const allInsumos: InsumoItem[] = quotationData.insumos as InsumoItem[];
-export const allSemillas: SemillaItem[] = quotationData.semillas as SemillaItem[];
+export const allInsumos: InsumoItem[] = (quotationData.insumos as InsumoItem[]).map((i) => ({
+  ...i,
+  imagenUrl: getProductImage(i.categoria, "Insumos"),
+  presentacion: "Bidón x 20 Lts / Estándar",
+}));
+
+export const allSemillas: SemillaItem[] = (quotationData.semillas as SemillaItem[]).map((s) => ({
+  ...s,
+  imagenUrl: getProductImage(s.semilla, "Semillas"),
+  presentacion: "Bolsa x 40 kg / Big Bag",
+}));
+
 export const granosConfig: GranosConfig = quotationData.granosConfig as GranosConfig;
 
 // Extract unique lists for Insumos
