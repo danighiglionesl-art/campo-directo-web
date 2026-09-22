@@ -187,11 +187,38 @@ export const FactoryProductsTab: React.FC = () => {
         canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          const isTransparentFormat = file.type === "image/png" || file.type === "image/webp";
+
+          let compressedDataUrl: string;
+          let formatoLabel: string;
+
+          if (isTransparentFormat) {
+            // Preservar canal alfa transparente (evita que el fondo transparente se convierta en negro)
+            ctx.clearRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const webpUrl = canvas.toDataURL("image/webp", 0.90);
+            if (webpUrl.startsWith("data:image/webp")) {
+              compressedDataUrl = webpUrl;
+              const approxKb = Math.round((compressedDataUrl.length * 3) / 4 / 1024);
+              formatoLabel = `WEBP transparente (${approxKb} KB)`;
+            } else {
+              compressedDataUrl = canvas.toDataURL("image/png");
+              const approxKb = Math.round((compressedDataUrl.length * 3) / 4 / 1024);
+              formatoLabel = `PNG transparente (${approxKb} KB)`;
+            }
+          } else {
+            // Para JPG, rellenar explícitamente el fondo con blanco antes de dibujar
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            compressedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+            const approxKb = Math.round((compressedDataUrl.length * 3) / 4 / 1024);
+            formatoLabel = `JPG optimizado (${approxKb} KB)`;
+          }
+
           setImagenUrl(compressedDataUrl);
-          const approxKb = Math.round((compressedDataUrl.length * 3) / 4 / 1024);
-          setImagenFormato(`JPG optimizado (${approxKb} KB)`);
+          setImagenFormato(formatoLabel);
         } else {
           setImagenUrl(rawDataUrl);
           setImagenFormato(`${file.type.split("/")[1].toUpperCase()} (${Math.round(file.size / 1024)} KB)`);
