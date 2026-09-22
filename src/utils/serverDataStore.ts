@@ -4,8 +4,10 @@ import {
   AdminQuotationSent,
   AdminEstablishment,
   AdminPaymentMethod,
+  FactoryProduct,
 } from "@/types/admin";
 import { initialAdminPaymentMethods } from "@/data/adminData";
+import { initialFactoryProducts } from "@/data/factoryData";
 
 interface ServerDataStore {
   clients: Map<string, AdminClient>;
@@ -13,6 +15,7 @@ interface ServerDataStore {
   quotationsSent: Map<string, AdminQuotationSent>;
   establishments: Map<string, AdminEstablishment>;
   paymentMethods: Map<string, AdminPaymentMethod>;
+  factoryProducts: Map<string, FactoryProduct>;
 }
 
 declare global {
@@ -26,12 +29,18 @@ if (!globalThis.__campoDirectoDataStore) {
     paymentMap.set(p.id, p);
   }
 
+  const factoryProductsMap = new Map<string, FactoryProduct>();
+  for (const prod of initialFactoryProducts) {
+    factoryProductsMap.set(prod.id, prod);
+  }
+
   globalThis.__campoDirectoDataStore = {
     clients: new Map<string, AdminClient>(),
     quotationsReceived: new Map<string, AdminQuotationReceived>(),
     quotationsSent: new Map<string, AdminQuotationSent>(),
     establishments: new Map<string, AdminEstablishment>(),
     paymentMethods: paymentMap,
+    factoryProducts: factoryProductsMap,
   };
 }
 
@@ -226,3 +235,33 @@ export function updatePaymentMethod(
   store.paymentMethods.set(id, updated);
   return updated;
 }
+
+// ==========================================
+// PRODUCTOS DE FÁBRICAS / LABORATORIOS
+// ==========================================
+export function getFactoryProducts(): FactoryProduct[] {
+  return Array.from(store.factoryProducts.values());
+}
+
+export function updateFactoryProductServer(
+  id: string,
+  updated: Partial<FactoryProduct>
+): FactoryProduct | null {
+  const existing = store.factoryProducts.get(id);
+  if (!existing) return null;
+
+  const merged: FactoryProduct = {
+    ...existing,
+    ...updated,
+  };
+  store.factoryProducts.set(id, merged);
+  return merged;
+}
+
+export function addFactoryProductServer(
+  data: FactoryProduct
+): FactoryProduct {
+  store.factoryProducts.set(data.id, data);
+  return data;
+}
+

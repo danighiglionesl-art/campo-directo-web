@@ -405,6 +405,37 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               localStorage.setItem("cd_admin_payment_methods", JSON.stringify(payRes.value.data));
             }
           }
+
+          // Sincronizar catálogo y fotografías subidas por fábricas
+          fetch("/api/panel/factory-products")
+            .then((r) => r.json())
+            .then((prodRes) => {
+              if (prodRes?.success && Array.isArray(prodRes.data) && prodRes.data.length > 0) {
+                setFactoryProducts((prev) => {
+                  const updatedMap = new Map<string, FactoryProduct>();
+                  for (const p of prodRes.data) {
+                    updatedMap.set(p.id, p);
+                  }
+                  const merged = prev.map((p) => {
+                    const fromServer = updatedMap.get(p.id);
+                    if (fromServer && fromServer.imagenUrl) {
+                      return { ...p, imagenUrl: fromServer.imagenUrl, presentacion: fromServer.presentacion || p.presentacion };
+                    }
+                    return p;
+                  });
+                  try {
+                    localStorage.setItem("cd_factory_products", JSON.stringify(merged));
+                    if (typeof window !== "undefined") {
+                      window.dispatchEvent(new Event("cd_factory_products_updated"));
+                    }
+                  } catch (e) {
+                    console.error(e);
+                  }
+                  return merged;
+                });
+              }
+            })
+            .catch((err) => console.warn("Sync server factory products:", err));
         } catch (serverErr) {
           console.warn("Sincronización con API de panel:", serverErr);
         }
@@ -1158,6 +1189,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return next;
     });
 
+    fetch("/api/panel/factory-products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newProd),
+    }).catch((e) => console.warn("Error enviando producto a servidor:", e));
+
     return newProd;
   };
 
@@ -1181,6 +1218,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return next;
     });
+
+    fetch(`/api/panel/factory-products/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updated),
+    }).catch((e) => console.warn("Error enviando actualización de producto a servidor:", e));
   };
 
   const deleteFactoryProduct = (id: string) => {
