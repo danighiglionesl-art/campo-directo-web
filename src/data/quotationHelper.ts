@@ -1,18 +1,8 @@
 import quotationData from "./quotationData.json";
 import { InsumoItem, SemillaItem, GranosConfig } from "@/types/quotation";
-import { getProductImage } from "./factoryData";
 
-export const allInsumos: InsumoItem[] = (quotationData.insumos as InsumoItem[]).map((i) => ({
-  ...i,
-  imagenUrl: "",
-  presentacion: "Bidón x 20 Lts / Estándar",
-}));
-
-export const allSemillas: SemillaItem[] = (quotationData.semillas as SemillaItem[]).map((s) => ({
-  ...s,
-  imagenUrl: "",
-  presentacion: "Bolsa x 40 kg / Big Bag",
-}));
+export const allInsumos: InsumoItem[] = quotationData.insumos as InsumoItem[];
+export const allSemillas: SemillaItem[] = quotationData.semillas as SemillaItem[];
 
 export const granosConfig: GranosConfig = quotationData.granosConfig as GranosConfig;
 

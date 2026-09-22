@@ -109,8 +109,8 @@ export const FactoryProductsTab: React.FC = () => {
     setSelectedCultivos(["SOJA", "MAÍZ"]);
     setPresentacion("");
     setDescripcion("");
-    setImagenUrl("https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&w=600&q=80");
-    setImagenFormato("JPG / PNG (800x800 px)");
+    setImagenUrl("");
+    setImagenFormato("");
     setActivoEnPortal(true);
     setImageError("");
     setIsModalOpen(true);
@@ -126,8 +126,9 @@ export const FactoryProductsTab: React.FC = () => {
     setSelectedCultivos(prod.cultivos || []);
     setPresentacion(prod.presentacion || "");
     setDescripcion(prod.descripcion || "");
-    setImagenUrl(prod.imagenUrl || "");
-    setImagenFormato(prod.imagenFormato || "JPG / PNG (800x800 px)");
+    const cleanImg = prod.imagenUrl && !prod.imagenUrl.includes("unsplash.com") ? prod.imagenUrl : "";
+    setImagenUrl(cleanImg);
+    setImagenFormato(cleanImg ? (prod.imagenFormato || "JPG / PNG (800x800 px)") : "");
     setActivoEnPortal(prod.activoEnPortal);
     setImageError("");
     setIsModalOpen(true);
@@ -218,7 +219,7 @@ export const FactoryProductsTab: React.FC = () => {
         cultivos: selectedCultivos,
         presentacion: presentacion.trim(),
         descripcion: descripcion.trim(),
-        imagenUrl: imagenUrl || "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&w=600&q=80",
+        imagenUrl: imagenUrl && !imagenUrl.includes("unsplash.com") ? imagenUrl : "",
         imagenFormato,
         activoEnPortal,
       });
@@ -232,7 +233,7 @@ export const FactoryProductsTab: React.FC = () => {
         cultivos: selectedCultivos,
         presentacion: presentacion.trim(),
         descripcion: descripcion.trim(),
-        imagenUrl: imagenUrl || "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&w=600&q=80",
+        imagenUrl: imagenUrl && !imagenUrl.includes("unsplash.com") ? imagenUrl : "",
         imagenFormato,
         activoEnPortal,
       });
@@ -321,7 +322,7 @@ export const FactoryProductsTab: React.FC = () => {
             >
               <div>
                 {/* Imagen del Producto */}
-                <div className="relative w-full h-44 bg-white overflow-hidden group flex items-center justify-center border-b border-slate-100">
+                <div className="relative w-full h-28 bg-white overflow-hidden group flex items-center justify-center border-b border-slate-100">
                   {prod.imagenUrl && !prod.imagenUrl.includes("unsplash.com") ? (
                     <Image
                       src={prod.imagenUrl}

@@ -450,36 +450,54 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const savedFabQuotes = localStorage.getItem("cd_factory_quotations");
       if (savedFabQuotes) {
         try {
-          setFactoryQuotations(JSON.parse(savedFabQuotes));
+          const parsed = JSON.parse(savedFabQuotes);
+          const cleaned = Array.isArray(parsed)
+            ? parsed.filter((q: FactoryQuotationDerivation) => !q.id?.startsWith("deriv-") && !q.numeroCotizacion?.includes("CD-2026-0842"))
+            : [];
+          setFactoryQuotations(cleaned);
+          localStorage.setItem("cd_factory_quotations", JSON.stringify(cleaned));
         } catch {
-          setFactoryQuotations(initialFactoryQuotations);
+          setFactoryQuotations([]);
         }
       } else {
-        localStorage.setItem("cd_factory_quotations", JSON.stringify(initialFactoryQuotations));
+        localStorage.setItem("cd_factory_quotations", JSON.stringify([]));
+        setFactoryQuotations([]);
       }
 
       // 10. Ventas Fábrica
       const savedFabSales = localStorage.getItem("cd_factory_sales");
       if (savedFabSales) {
         try {
-          setFactorySales(JSON.parse(savedFabSales));
+          const parsed = JSON.parse(savedFabSales);
+          const cleaned = Array.isArray(parsed)
+            ? parsed.filter((s: FactorySale) => !s.id?.startsWith("vta-") && !s.numeroOperacion?.includes("VTA-2026-"))
+            : [];
+          setFactorySales(cleaned);
+          localStorage.setItem("cd_factory_sales", JSON.stringify(cleaned));
         } catch {
-          setFactorySales(initialFactorySales);
+          setFactorySales([]);
         }
       } else {
-        localStorage.setItem("cd_factory_sales", JSON.stringify(initialFactorySales));
+        localStorage.setItem("cd_factory_sales", JSON.stringify([]));
+        setFactorySales([]);
       }
 
       // 11. Cuenta Corriente Fábrica
       const savedFabMov = localStorage.getItem("cd_factory_movements");
       if (savedFabMov) {
         try {
-          setFactoryMovements(JSON.parse(savedFabMov));
+          const parsed = JSON.parse(savedFabMov);
+          const cleaned = Array.isArray(parsed)
+            ? parsed.filter((m: FactoryAccountMovement) => !m.id?.startsWith("mov-") && !m.numeroComprobante?.includes("FC A-0008-") && !m.numeroComprobante?.includes("OP-CD-"))
+            : [];
+          setFactoryMovements(cleaned);
+          localStorage.setItem("cd_factory_movements", JSON.stringify(cleaned));
         } catch {
-          setFactoryMovements(initialFactoryMovements);
+          setFactoryMovements([]);
         }
       } else {
-        localStorage.setItem("cd_factory_movements", JSON.stringify(initialFactoryMovements));
+        localStorage.setItem("cd_factory_movements", JSON.stringify([]));
+        setFactoryMovements([]);
       }
 
       syncWithServer();

@@ -49,8 +49,6 @@ import { useClientAuth } from "@/context/ClientAuthContext";
 import { triggerGoogleAuth } from "@/utils/googleAuth";
 import { ClientRecoveryModal, RecoveryTab } from "@/components/portal/ClientRecoveryModal";
 import { FactoryProduct } from "@/types/admin";
-import { getProductImage } from "@/data/factoryData";
-import { ProcessImageIcon } from "@/components/ui/ProcessImageIcon";
 import {
   allInsumos,
   allSemillas,
@@ -161,7 +159,10 @@ export const QuotationSection: React.FC = () => {
         for (const p of prods) {
           if (p.activoEnPortal === false) continue;
 
-          if (p.rubro === "Insumos") {
+          // Sanitizar URL: descartar fotos genéricas de Unsplash
+          const cleanImg = p.imagenUrl && !p.imagenUrl.includes("unsplash.com") ? p.imagenUrl : "";
+
+          if (p.rubro === "Insumos" || !p.rubro) {
             syncedInsumos.push({
               id: p.id.replace(/^fprod-/, ""),
               empresa: p.empresa,
@@ -171,8 +172,8 @@ export const QuotationSection: React.FC = () => {
               cultivosPrincipales: Array.isArray(p.cultivos)
                 ? p.cultivos.join(", ")
                 : (p.cultivos || ""),
-              imagenUrl: p.imagenUrl,
-              presentacion: p.presentacion,
+              imagenUrl: cleanImg,
+              presentacion: p.presentacion || "Bidón x 20 Lts / Estándar",
             });
           } else if (p.rubro === "Semillas") {
             syncedSemillas.push({
@@ -182,8 +183,8 @@ export const QuotationSection: React.FC = () => {
               variedad: p.variedadSemilla || p.nombre,
               tecnologia: p.tecnologiaSemilla || p.principioActivo || "-",
               caracteristicas: p.caracteristicasSemilla || p.descripcion || "",
-              imagenUrl: p.imagenUrl,
-              presentacion: p.presentacion,
+              imagenUrl: cleanImg,
+              presentacion: p.presentacion || "Bolsa x 40 kg / Big Bag",
             });
           }
         }
@@ -199,10 +200,12 @@ export const QuotationSection: React.FC = () => {
 
     window.addEventListener("cd_factory_products_updated", syncFromFactoryStorage);
     window.addEventListener("storage", syncFromFactoryStorage);
+    window.addEventListener("focus", syncFromFactoryStorage);
 
     return () => {
       window.removeEventListener("cd_factory_products_updated", syncFromFactoryStorage);
       window.removeEventListener("storage", syncFromFactoryStorage);
+      window.removeEventListener("focus", syncFromFactoryStorage);
     };
   }, []);
 
@@ -1977,58 +1980,47 @@ export const QuotationSection: React.FC = () => {
                       {paginatedInsumos.map((item) => (
                         <div
                           key={item.id}
-                          className="bg-white rounded-2xl border border-slate-200 shadow-card hover:shadow-card-hover transition-all flex flex-col justify-between overflow-hidden group"
+                          className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200/80 shadow-card hover:shadow-card-hover transition-all flex flex-col justify-between"
                         >
-                          {/* Cabecera con Imagen del Producto */}
-                          <div className="relative w-full h-44 bg-slate-100 overflow-hidden">
-                            <Image
-                              src={item.imagenUrl || getProductImage(item.categoria, "Insumos")}
-                              alt={item.producto}
-                              fill
-                              className="object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                            <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-900/85 text-white text-[10px] font-bold uppercase tracking-wider backdrop-blur-xs shadow-xs">
-                                <Building2 className="w-3 h-3 mr-1 text-slate-300" />
+                          <div>
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-bold uppercase tracking-wider">
+                                <Building2 className="w-3 h-3 mr-1 text-slate-500" />
                                 {item.empresa}
                               </span>
-                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-campo-green-600/90 text-white text-[10px] font-bold backdrop-blur-xs shadow-xs">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-campo-green-50 text-campo-green-800 text-[11px] font-bold">
                                 {item.categoria}
                               </span>
                             </div>
-                          </div>
 
-                          <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
-                            <div>
-                              <h4 className="text-base font-black text-slate-900 leading-snug mb-2">
-                                {item.producto}
-                              </h4>
+                            <h4 className="text-base font-black text-slate-900 leading-snug mb-1">
+                              {item.producto}
+                            </h4>
 
-                              <div className="space-y-1.5 text-xs text-slate-600 mb-4">
-                                <div className="flex items-start gap-1.5">
-                                  <FlaskConical className="w-3.5 h-3.5 text-campo-green shrink-0 mt-0.5" />
-                                  <span>
-                                    <strong className="text-slate-700">P. ACTIVO:</strong> {item.principioActivo || "-"}
-                                  </span>
-                                </div>
-                                <div className="flex items-start gap-1.5">
-                                  <Sprout className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                                  <span>
-                                    <strong className="text-slate-700">CULTIVOS:</strong> {item.cultivosPrincipales || "TODOS LOS CULTIVOS"}
-                                  </span>
-                                </div>
+                            <div className="space-y-1.5 text-xs text-slate-600 mb-4">
+                              <div className="flex items-start gap-1.5">
+                                <FlaskConical className="w-3.5 h-3.5 text-campo-green shrink-0 mt-0.5" />
+                                <span>
+                                  <strong className="text-slate-700">P. ACTIVO:</strong> {item.principioActivo || "-"}
+                                </span>
+                              </div>
+                              <div className="flex items-start gap-1.5">
+                                <Sprout className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                                <span>
+                                  <strong className="text-slate-700">CULTIVOS:</strong> {item.cultivosPrincipales || "TODOS LOS CULTIVOS"}
+                                </span>
                               </div>
                             </div>
-
-                            <button
-                              type="button"
-                              onClick={() => addInsumoToCart(item)}
-                              className="w-full mt-2 py-2.5 px-3 bg-campo-green hover:bg-campo-green-600 text-white text-xs font-black rounded-lg transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 group"
-                            >
-                              <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                              <span>AGREGAR A COTIZACIÓN</span>
-                            </button>
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={() => addInsumoToCart(item)}
+                            className="w-full mt-2 py-2.5 px-3 bg-campo-green hover:bg-campo-green-600 text-white text-xs font-black rounded-lg transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 group cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                            <span>AGREGAR A COTIZACIÓN</span>
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -2066,53 +2058,42 @@ export const QuotationSection: React.FC = () => {
                       {paginatedSemillas.map((item) => (
                         <div
                           key={item.id}
-                          className="bg-white rounded-2xl border border-slate-200 shadow-card hover:shadow-card-hover transition-all flex flex-col justify-between overflow-hidden group"
+                          className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200/80 shadow-card hover:shadow-card-hover transition-all flex flex-col justify-between"
                         >
-                          {/* Cabecera con Imagen de la Semilla */}
-                          <div className="relative w-full h-44 bg-slate-100 overflow-hidden">
-                            <Image
-                              src={item.imagenUrl || getProductImage(item.semilla, "Semillas")}
-                              alt={item.variedad}
-                              fill
-                              className="object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                            <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-900/85 text-white text-[10px] font-bold uppercase tracking-wider backdrop-blur-xs shadow-xs">
-                                <Building2 className="w-3 h-3 mr-1 text-slate-300" />
+                          <div>
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-bold uppercase tracking-wider">
+                                <Building2 className="w-3 h-3 mr-1 text-slate-500" />
                                 {item.empresa}
                               </span>
-                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-600/90 text-white text-[10px] font-bold backdrop-blur-xs shadow-xs">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-50 text-amber-800 text-[11px] font-bold">
                                 {item.semilla}
                               </span>
                             </div>
-                          </div>
 
-                          <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
-                            <div>
-                              <h4 className="text-base font-black text-slate-900 leading-snug mb-1">
-                                {item.variedad}
-                              </h4>
+                            <h4 className="text-base font-black text-slate-900 leading-snug mb-1">
+                              {item.variedad}
+                            </h4>
 
-                              <div className="mb-3">
-                                <span className="inline-block px-2 py-0.5 rounded-full bg-campo-green-100 text-campo-green-900 text-[10px] font-bold uppercase">
-                                  TECNOLOGÍA: {item.tecnologia || "CONVENCIONAL"}
-                                </span>
-                              </div>
-
-                              <p className="text-xs text-slate-600 leading-relaxed line-clamp-2 mb-4">
-                                {item.caracteristicas || "HÍBRIDO/VARIEDAD CON EXCELENTE POTENCIAL DE RINDE Y SANIDAD FOLIAR."}
-                              </p>
+                            <div className="mb-3">
+                              <span className="inline-block px-2 py-0.5 rounded-full bg-campo-green-100 text-campo-green-900 text-[10px] font-bold uppercase">
+                                TECNOLOGÍA: {item.tecnologia || "CONVENCIONAL"}
+                              </span>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => addSemillaToCart(item)}
-                              className="w-full mt-2 py-2.5 px-3 bg-campo-green hover:bg-campo-green-600 text-white text-xs font-black rounded-lg transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 group"
-                            >
-                              <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                              <span>AGREGAR A COTIZACIÓN</span>
-                            </button>
+                            <p className="text-xs text-slate-600 leading-relaxed line-clamp-2 mb-4">
+                              {item.caracteristicas || "HÍBRIDO/VARIEDAD CON EXCELENTE POTENCIAL DE RINDE Y SANIDAD FOLIAR."}
+                            </p>
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={() => addSemillaToCart(item)}
+                            className="w-full mt-2 py-2.5 px-3 bg-campo-green hover:bg-campo-green-600 text-white text-xs font-black rounded-lg transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 group cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                            <span>AGREGAR A COTIZACIÓN</span>
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -2183,9 +2164,9 @@ export const QuotationSection: React.FC = () => {
             )}
           </div>
 
-          {/* COLUMNA DERECHA: EL CARRITO DE COTIZACIÓN (TAMAÑO PRE-ESTABLECIDO SIN SOBREPASAR PRODUCTOS) */}
-          <div className="lg:col-span-4 flex flex-col lg:max-h-[690px]">
-            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-card border-2 border-slate-200/90 flex-1 flex flex-col justify-between min-h-[520px] lg:min-h-0 lg:max-h-[690px] overflow-hidden">
+          {/* COLUMNA DERECHA: EL CARRITO DE COTIZACIÓN (NIVELADO EXACTAMENTE CON LOS PRODUCTOS) */}
+          <div className="lg:col-span-4 flex flex-col h-full">
+            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-card border-2 border-slate-200/90 flex-1 flex flex-col justify-between h-full overflow-hidden">
               <div className="flex items-center justify-between pb-4 border-b border-slate-100 shrink-0">
                 <div className="flex items-center gap-2 font-black text-slate-900 text-base">
                   <ShoppingCart className="w-5 h-5 text-campo-green" />
