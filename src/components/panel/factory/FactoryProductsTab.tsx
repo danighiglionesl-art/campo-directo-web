@@ -351,11 +351,11 @@ export const FactoryProductsTab: React.FC = () => {
                 {/* Imagen del Producto */}
                 <div className="relative w-full h-28 bg-white overflow-hidden group flex items-center justify-center border-b border-slate-100">
                   {prod.imagenUrl && !prod.imagenUrl.includes("unsplash.com") ? (
-                    <Image
+                    <img
                       src={prod.imagenUrl}
                       alt={prod.nombre}
-                      fill
-                      className="object-contain p-2.5 group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-contain p-2.5 group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
                     />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-emerald-50/30 p-3 select-none">
@@ -645,11 +645,10 @@ export const FactoryProductsTab: React.FC = () => {
                   <div className="sm:col-span-4 flex flex-col items-center">
                     <div className="relative w-28 h-28 rounded-2xl border border-slate-300 overflow-hidden bg-white shadow-xs flex items-center justify-center">
                       {imagenUrl && !imagenUrl.includes("unsplash.com") ? (
-                        <Image
+                        <img
                           src={imagenUrl}
                           alt="Vista previa"
-                          fill
-                          className="object-contain p-1.5"
+                          className="w-full h-full object-contain p-1.5"
                         />
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-emerald-50/30 p-2 text-center select-none">

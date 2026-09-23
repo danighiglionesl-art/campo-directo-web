@@ -6,7 +6,8 @@
       "producto": "ARSONEX",
       "principioActivo": "IMAZAMOX + IMAZAPIR",
       "categoria": "HERBICIDA",
-      "cultivosPrincipales": "SOJA"
+      "cultivosPrincipales": "SOJA",
+      "imagenUrl": "/images/products/arsonex.svg"
     },
     {
       "id": "ins-2",
@@ -14,7 +15,8 @@
       "producto": "ATRANEX 90 WG",
       "principioActivo": "ATRAZINA 90%",
       "categoria": "HERBICIDA",
-      "cultivosPrincipales": "MAÍZ"
+      "cultivosPrincipales": "MAÍZ",
+      "imagenUrl": "/images/products/atranex-90-wg.svg"
     },
     {
       "id": "ins-3",
@@ -22,7 +24,8 @@
       "producto": "BENDER",
       "principioActivo": "DICAMBA",
       "categoria": "HERBICIDA",
-      "cultivosPrincipales": "BARBECHO, SOJA"
+      "cultivosPrincipales": "BARBECHO, SOJA",
+      "imagenUrl": "/images/products/bender.svg"
     },
     {
       "id": "ins-4",
@@ -30,7 +33,8 @@
       "producto": "BROMOTRIL",
       "principioActivo": "BROMOXINIL",
       "categoria": "HERBICIDA",
-      "cultivosPrincipales": "CEREALES"
+      "cultivosPrincipales": "CEREALES",
+      "imagenUrl": "/images/products/bromotril.svg"
     },
     {
       "id": "ins-5",
@@ -38,7 +42,8 @@
       "producto": "BURNER 40",
       "principioActivo": "GLUFOSINATO DE AMONIO",
       "categoria": "HERBICIDA",
-      "cultivosPrincipales": "BARBECHO"
+      "cultivosPrincipales": "BARBECHO",
+      "imagenUrl": "/images/products/burner-40.svg"
     },
     {
       "id": "ins-6",
@@ -46,7 +51,8 @@
       "producto": "CLIN 33 CE",
       "principioActivo": "PENDIMETALINA",
       "categoria": "HERBICIDA",
-      "cultivosPrincipales": "SOJA, MANÍ, MAÍZ"
+      "cultivosPrincipales": "SOJA, MANÍ, MAÍZ",
+      "imagenUrl": "/images/products/clin-33-ce.svg"
     },
     {
       "id": "ins-7",

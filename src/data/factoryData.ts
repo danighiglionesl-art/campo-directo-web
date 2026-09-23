@@ -796,8 +796,8 @@ const insumoProducts: FactoryProduct[] = (quotationData.insumos as InsumoItem[])
   cultivos: ins.cultivosPrincipales
     ? ins.cultivosPrincipales.split(",").map((c: string) => c.trim().toUpperCase()).filter(Boolean)
     : ["SOJA", "MAÍZ"],
-  imagenUrl: "",
-  imagenFormato: "JPG / PNG (800x800 px)",
+  imagenUrl: ins.imagenUrl || "",
+  imagenFormato: ins.imagenUrl ? "Vector SVG / PNG Transparente" : "JPG / PNG (800x800 px)",
   presentacion: "Bidón x 20 Lts / Estándar",
   descripcion: `${ins.producto} (${ins.empresa}) - ${ins.categoria}. Principio Activo: ${ins.principioActivo}. Recomendado para: ${ins.cultivosPrincipales}.`,
   fechaActualizacion: "15/03/2026",
@@ -813,8 +813,8 @@ const semillaProducts: FactoryProduct[] = (quotationData.semillas as SemillaItem
   categoria: `SEMILLA ${sem.semilla}`,
   principioActivo: sem.tecnologia || sem.caracteristicas || "TECNOLOGÍA CERTIFICADA",
   cultivos: [sem.semilla.toUpperCase()],
-  imagenUrl: "",
-  imagenFormato: "JPG / PNG (800x800 px)",
+  imagenUrl: sem.imagenUrl || "",
+  imagenFormato: sem.imagenUrl ? "Vector SVG / PNG Transparente" : "JPG / PNG (800x800 px)",
   presentacion: "Bolsa x 40 kg / Big Bag",
   descripcion: `Semilla fiscalizada de ${sem.semilla} variedad ${sem.variedad} (${sem.empresa}). Tecnología: ${sem.tecnologia}. ${sem.caracteristicas || ""}`,
   fechaActualizacion: "15/03/2026",

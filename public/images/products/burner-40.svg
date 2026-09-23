@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="100%" height="100%">
+  <defs>
+    <filter id="drop-shadow-BURNER-40" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+    
+    <linearGradient id="body-grad-BURNER-40" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#e2e8f0"/>
+      <stop offset="12%" stop-color="#ffffff"/>
+      <stop offset="70%" stop-color="#f8fafc"/>
+      <stop offset="92%" stop-color="#e2e8f0"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+
+    <linearGradient id="cap-grad-BURNER-40" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#15803d"/>
+      <stop offset="35%" stop-color="#22c55e"/>
+      <stop offset="75%" stop-color="#16a34a"/>
+      <stop offset="100%" stop-color="#14532d"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Sombra en la base -->
+  <ellipse cx="200" cy="470" rx="140" ry="14" fill="#000000" opacity="0.15" filter="blur(6px)"/>
+  <ellipse cx="200" cy="468" rx="110" ry="8" fill="#000000" opacity="0.22" filter="blur(3px)"/>
+
+  <!-- Envase Bidón 20 Litros -->
+  <g filter="url(#drop-shadow-BURNER-40)">
+    <path d="
+      M 115 110
+      C 115 105, 125 95, 140 95
+      L 180 95
+      C 195 95, 205 105, 215 115
+      L 300 130
+      C 320 135, 330 150, 330 175
+      L 330 435
+      C 330 455, 315 465, 295 465
+      L 105 465
+      C 85 465, 70 455, 70 435
+      L 70 145
+      C 70 125, 85 110, 115 110
+      Z
+    " fill="url(#body-grad-BURNER-40)"/>
+
+    <!-- Hueco del asa -->
+    <path d="
+      M 205 155
+      C 200 145, 215 135, 235 135
+      L 290 145
+      C 305 148, 308 160, 305 175
+      C 300 195, 290 205, 275 205
+      L 225 195
+      C 210 190, 205 170, 205 155
+      Z
+    " fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+
+    <!-- Cuello -->
+    <rect x="95" y="80" width="70" height="20" rx="4" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1.5"/>
+
+    <!-- Tapa verde ergonómica -->
+    <rect x="90" y="55" width="80" height="32" rx="6" fill="url(#cap-grad-BURNER-40)"/>
+    <line x1="102" y1="58" x2="102" y2="84" stroke="#15803d" stroke-width="2"/>
+    <line x1="112" y1="58" x2="112" y2="84" stroke="#16a34a" stroke-width="2"/>
+    <line x1="122" y1="58" x2="122" y2="84" stroke="#4ade80" stroke-width="2"/>
+    <line x1="132" y1="58" x2="132" y2="84" stroke="#4ade80" stroke-width="2"/>
+    <line x1="142" y1="58" x2="142" y2="84" stroke="#22c55e" stroke-width="2"/>
+    <line x1="152" y1="58" x2="152" y2="84" stroke="#16a34a" stroke-width="2"/>
+    <line x1="162" y1="58" x2="162" y2="84" stroke="#15803d" stroke-width="2"/>
+    <rect x="90" y="82" width="80" height="5" fill="#14532d" opacity="0.6"/>
+
+    <!-- Relieves del bidón -->
+    <path d="M 85 240 L 315 240" stroke="#e2e8f0" stroke-width="3" stroke-linecap="round"/>
+    <path d="M 85 243 L 315 243" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+
+    <path d="M 85 410 L 315 410" stroke="#e2e8f0" stroke-width="3" stroke-linecap="round"/>
+    <path d="M 85 413 L 315 413" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+
+    <!-- Logo oficial ADAMA (Triángulo concéntrico verde) -->
+    <g transform="translate(200, 315)">
+      <path d="M 0 -45 L 38 22 C 40 26, 37 32, 32 32 L -32 32 C -37 32, -40 26, -38 22 Z" 
+            fill="none" stroke="#22c55e" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M 0 -30 L 25 15 C 27 18, 25 22, 21 22 L -21 22 C -25 22, -27 18, -25 15 Z" 
+            fill="none" stroke="#4ade80" stroke-width="4.5" stroke-linejoin="round"/>
+      <polygon points="0,-16 13,10 -13,10" fill="#16a34a"/>
+    </g>
+
+    <!-- Nombre comercial del producto -->
+    <text x="200" y="380" 
+          text-anchor="middle" 
+          font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+          font-size="22" 
+          font-weight="900" 
+          fill="#15803d" 
+          letter-spacing="1">
+      BURNER 40
+    </text>
+
+    <text x="200" y="398" 
+          text-anchor="middle" 
+          font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+          font-size="10" 
+          font-weight="700" 
+          fill="#64748b" 
+          letter-spacing="2">
+      HERBICIDA
+    </text>
+  </g>
+</svg>

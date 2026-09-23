@@ -416,12 +416,21 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   for (const p of prodRes.data) {
                     updatedMap.set(p.id, p);
                   }
+                  const initialMap = new Map(initialFactoryProducts.map((p) => [p.id, p]));
                   const merged = prev.map((p) => {
                     const fromServer = updatedMap.get(p.id);
+                    const def = initialMap.get(p.id);
+                    let finalImg = p.imagenUrl;
                     if (fromServer && fromServer.imagenUrl) {
-                      return { ...p, imagenUrl: fromServer.imagenUrl, presentacion: fromServer.presentacion || p.presentacion };
+                      finalImg = fromServer.imagenUrl;
+                    } else if ((!finalImg || finalImg.includes("unsplash.com")) && def?.imagenUrl) {
+                      finalImg = def.imagenUrl;
                     }
-                    return p;
+                    return {
+                      ...p,
+                      imagenUrl: finalImg,
+                      presentacion: fromServer?.presentacion || p.presentacion,
+                    };
                   });
                   try {
                     localStorage.setItem("cd_factory_products", JSON.stringify(merged));
@@ -467,7 +476,21 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (savedFabProd) {
           try {
             const parsed = JSON.parse(savedFabProd);
-            setFactoryProducts(Array.isArray(parsed) && parsed.length >= 1000 ? parsed : initialFactoryProducts);
+            if (Array.isArray(parsed) && parsed.length >= 1000) {
+              const initialMap = new Map(initialFactoryProducts.map((p) => [p.id, p]));
+              const merged = parsed.map((p: FactoryProduct) => {
+                const def = initialMap.get(p.id);
+                if ((!p.imagenUrl || p.imagenUrl.includes("unsplash.com")) && def?.imagenUrl) {
+                  return { ...p, imagenUrl: def.imagenUrl, imagenFormato: def.imagenFormato || p.imagenFormato };
+                }
+                return p;
+              });
+              setFactoryProducts(merged);
+              localStorage.setItem("cd_factory_products", JSON.stringify(merged));
+            } else {
+              setFactoryProducts(initialFactoryProducts);
+              localStorage.setItem("cd_factory_products", JSON.stringify(initialFactoryProducts));
+            }
           } catch {
             setFactoryProducts(initialFactoryProducts);
           }

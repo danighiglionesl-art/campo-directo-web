@@ -166,14 +166,19 @@ export const QuotationSection: React.FC = () => {
           prods = initialFactoryProducts;
         }
 
+        const initialMap = new Map(initialFactoryProducts.map((ip) => [ip.id, ip]));
         const syncedInsumos: InsumoItem[] = [];
         const syncedSemillas: SemillaItem[] = [];
 
         for (const p of prods) {
           if (p.activoEnPortal === false) continue;
 
-          // Sanitizar URL: descartar fotos genéricas de Unsplash
-          const cleanImg = p.imagenUrl && !p.imagenUrl.includes("unsplash.com") ? p.imagenUrl : "";
+          // Sanitizar URL: descartar fotos genéricas de Unsplash y dar prioridad a foto subida o default oficial
+          const defaultProd = initialMap.get(p.id);
+          const rawImg = (p.imagenUrl && !p.imagenUrl.includes("unsplash.com"))
+            ? p.imagenUrl
+            : (defaultProd?.imagenUrl && !defaultProd.imagenUrl.includes("unsplash.com") ? defaultProd.imagenUrl : "");
+          const cleanImg = rawImg || "";
 
           if (p.rubro === "Insumos" || !p.rubro) {
             syncedInsumos.push({
@@ -2015,11 +2020,11 @@ export const QuotationSection: React.FC = () => {
                           {/* Cabecera con Imagen del Producto (compacta y con envase 100% visible) */}
                           <div className="relative w-full h-28 bg-white border-b border-slate-100 flex items-center justify-center overflow-hidden">
                             {item.imagenUrl && !item.imagenUrl.includes("unsplash.com") ? (
-                              <Image
+                              <img
                                 src={item.imagenUrl}
                                 alt={item.producto}
-                                fill
-                                className="object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                                className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                                loading="lazy"
                               />
                             ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-emerald-50/25 p-2 select-none">
@@ -2119,11 +2124,11 @@ export const QuotationSection: React.FC = () => {
                           {/* Cabecera con Imagen de la Semilla (compacta y con envase 100% visible) */}
                           <div className="relative w-full h-28 bg-white border-b border-slate-100 flex items-center justify-center overflow-hidden">
                             {item.imagenUrl && !item.imagenUrl.includes("unsplash.com") ? (
-                              <Image
+                              <img
                                 src={item.imagenUrl}
                                 alt={item.variedad}
-                                fill
-                                className="object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                                className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                                loading="lazy"
                               />
                             ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-emerald-50/25 p-2 select-none">
