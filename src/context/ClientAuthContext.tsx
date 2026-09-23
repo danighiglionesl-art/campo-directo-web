@@ -104,6 +104,7 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         "33-71458923-9",
         "33-70894512-9",
         "30-54123789-2",
+        "20-33445566-7",
       ];
       const demoClientIds = ["cli-001", "cli-002", "cli-003", "cli-004", "cli-005"];
 
@@ -256,9 +257,27 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const registerClient = (profileData: Partial<ClientProfile>): { success: boolean; user: ClientProfile } => {
     const newProfile: ClientProfile = {
-      ...defaultClientProfile,
-      ...profileData,
       id: profileData.id || `cli-${Date.now()}`,
+      usuario: profileData.usuario || "",
+      razonSocial: profileData.razonSocial || "",
+      apellidos: profileData.apellidos || "",
+      nombres: profileData.nombres || "",
+      fechaNacimiento: profileData.fechaNacimiento || "",
+      dni: profileData.dni || "",
+      cuit: profileData.cuit || "",
+      condicionIva: profileData.condicionIva || "Responsable Inscripto",
+      email: profileData.email || "",
+      telefono: profileData.telefono || profileData.whatsapp || "",
+      whatsapp: profileData.whatsapp || "",
+      provincia: profileData.provincia || "BUENOS AIRES",
+      localidad: profileData.localidad || "",
+      codigoPostal: profileData.codigoPostal || "",
+      direccion: profileData.direccion || "",
+      actividadPrincipal: profileData.actividadPrincipal || "Producción Agropecuaria",
+      horariosPreferidos: profileData.horariosPreferidos || [],
+      observaciones: profileData.observaciones || "",
+      authProvider: profileData.authProvider || "local",
+      ...profileData,
     };
     setUser(newProfile);
     try {
@@ -290,23 +309,36 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const nombres = (
       googleUser.given_name ||
       googleUser.name?.split(" ")[0] ||
-      "PRODUCTOR"
+      ""
     ).toUpperCase();
     const apellidos = (
       googleUser.family_name ||
       googleUser.name?.split(" ").slice(1).join(" ") ||
-      "AGROPECUARIO"
+      ""
     ).toUpperCase();
-    const razonSocial = `${apellidos} ${nombres}`.trim();
+    const razonSocial = (googleUser.name || `${apellidos} ${nombres}`).trim().toUpperCase();
 
     let baseProfile: ClientProfile = {
-      ...defaultClientProfile,
       id: `cli-${Date.now()}`,
       usuario,
       razonSocial,
       apellidos,
       nombres,
+      fechaNacimiento: "",
+      dni: "",
+      cuit: "",
+      condicionIva: "Responsable Inscripto",
       email: email.toLowerCase(),
+      telefono: "",
+      whatsapp: "",
+      provincia: "BUENOS AIRES",
+      localidad: "",
+      codigoPostal: "",
+      direccion: "",
+      actividadPrincipal: "Producción Agropecuaria",
+      horariosPreferidos: [],
+      observaciones: "",
+      authProvider: "google",
     };
 
     if (typeof window !== "undefined") {
@@ -317,13 +349,16 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           if (
             parsed &&
             (parsed.email?.toLowerCase() === email.toLowerCase() ||
-              parsed.usuario?.toLowerCase() === usuario.toLowerCase())
+              parsed.usuario?.toLowerCase() === usuario.toLowerCase()) &&
+            parsed.cuit &&
+            parsed.cuit !== "20-33445566-7"
           ) {
             baseProfile = {
               ...parsed,
               email: email.toLowerCase(),
-              nombres,
-              apellidos,
+              nombres: nombres || parsed.nombres,
+              apellidos: apellidos || parsed.apellidos,
+              authProvider: "google",
             };
           }
         }

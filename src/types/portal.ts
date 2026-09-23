@@ -4,6 +4,8 @@ export interface ClientProfile {
   razonSocial: string;
   apellidos: string;
   nombres: string;
+  fechaNacimiento?: string;
+  dni?: string;
   cuit: string;
   condicionIva: string;
   email: string;
@@ -14,6 +16,9 @@ export interface ClientProfile {
   codigoPostal?: string;
   direccion: string;
   actividadPrincipal: string;
+  horariosPreferidos?: string[];
+  observaciones?: string;
+  authProvider?: "google" | "local";
 }
 
 export interface Establishment {

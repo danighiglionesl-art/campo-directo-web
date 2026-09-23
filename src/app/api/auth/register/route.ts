@@ -10,27 +10,37 @@ export async function POST(request: Request) {
       razonSocial,
       apellidos,
       nombres,
+      fechaNacimiento,
+      dni,
       email,
       telefono,
       whatsapp,
       provincia,
       localidad,
+      codigoPostal,
       campoNombre,
       usuario,
       password,
+      horariosPreferidos,
+      observaciones,
     } = body as {
       cuit?: string;
       razonSocial?: string;
       apellidos?: string;
       nombres?: string;
+      fechaNacimiento?: string;
+      dni?: string;
       email?: string;
       telefono?: string;
       whatsapp?: string;
       provincia?: string;
       localidad?: string;
+      codigoPostal?: string;
       campoNombre?: string;
       usuario?: string;
       password?: string;
+      horariosPreferidos?: string[];
+      observaciones?: string;
     };
 
     const cleanCuit = String(cuit || "").replace(/\D/g, "");
@@ -81,10 +91,17 @@ export async function POST(request: Request) {
         fullName.split(" ").slice(1).join(" ") ||
         "AGROPECUARIO"
       ).toUpperCase(),
+      fechaNacimiento,
+      dni,
       cuit: cuit || cleanCuit,
       email: cleanEmail,
       telefono: telefono || whatsapp || "",
       whatsapp: whatsapp || telefono || "",
+      provincia: provincia?.trim().toUpperCase() || "BUENOS AIRES",
+      localidad: localidad?.trim().toUpperCase() || "CENTRO",
+      codigoPostal: codigoPostal?.trim(),
+      horariosPreferidos: horariosPreferidos || [],
+      observaciones: observaciones?.trim(),
       authProvider: isGoogleAuth ? "google" : "local",
       passwordHash: password || "GOOGLE_SSO_AUTH",
     });
@@ -104,8 +121,9 @@ export async function POST(request: Request) {
       email: cleanEmail,
       telefono: telefono || whatsapp || "",
       whatsapp: whatsapp || telefono || "",
-      provincia: provincia?.trim().toUpperCase() || "CÓRDOBA",
-      localidad: localidad?.trim().toUpperCase() || "CÓRDOBA",
+      provincia: provincia?.trim().toUpperCase() || "BUENOS AIRES",
+      localidad: localidad?.trim().toUpperCase() || "CENTRO",
+      codigoPostal: codigoPostal?.trim(),
       direccion: campoNombre?.trim().toUpperCase() || "TRANQUERA PRINCIPAL",
       actividadPrincipal: cleanCuit.startsWith("30") || cleanCuit.startsWith("33") ? "EMPRESA AGROPECUARIA" : "PRODUCCIÓN AGROPECUARIA",
       estado: "ACTIVO",
@@ -118,7 +136,7 @@ export async function POST(request: Request) {
         clienteNombre: fullName,
         clienteCuit: cuit || cleanCuit,
         nombre: campoNombre.trim().toUpperCase(),
-        provincia: provincia?.trim().toUpperCase() || "CÓRDOBA",
+        provincia: provincia?.trim().toUpperCase() || "BUENOS AIRES",
         localidad: localidad?.trim().toUpperCase() || "ZONA RURAL",
         hectareas: 300,
         actividad: "Agrícola",
@@ -137,12 +155,17 @@ export async function POST(request: Request) {
         razonSocial: serverUser.razonSocial,
         apellidos: serverUser.apellidos,
         nombres: serverUser.nombres,
+        fechaNacimiento: serverUser.fechaNacimiento,
+        dni: serverUser.dni,
         cuit: serverUser.cuit,
         email: serverUser.email,
         telefono: serverUser.telefono,
         whatsapp: serverUser.whatsapp,
         provincia: registeredClient.provincia,
         localidad: registeredClient.localidad,
+        codigoPostal: serverUser.codigoPostal,
+        horariosPreferidos: serverUser.horariosPreferidos,
+        observaciones: serverUser.observaciones,
       },
       message: "Cuenta creada exitosamente en Campo Directo.",
     });

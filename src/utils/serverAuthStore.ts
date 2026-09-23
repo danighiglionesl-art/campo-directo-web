@@ -6,10 +6,17 @@ export interface ServerUserRecord {
   razonSocial: string;
   apellidos: string;
   nombres: string;
+  fechaNacimiento?: string;
+  dni?: string;
   cuit: string;
   email: string;
   telefono?: string;
   whatsapp?: string;
+  provincia?: string;
+  localidad?: string;
+  codigoPostal?: string;
+  horariosPreferidos?: string[];
+  observaciones?: string;
   authProvider: "local" | "google";
   passwordHash?: string;
   createdAt: string;
@@ -118,10 +125,17 @@ export function upsertUser(userData: Partial<ServerUserRecord> & { id: string })
     razonSocial: userData.razonSocial || existing?.razonSocial || "PRODUCTOR AGROPECUARIO",
     apellidos: userData.apellidos || existing?.apellidos || "",
     nombres: userData.nombres || existing?.nombres || "",
+    fechaNacimiento: userData.fechaNacimiento || existing?.fechaNacimiento,
+    dni: userData.dni || existing?.dni,
     cuit: userData.cuit || existing?.cuit || "",
     email: userData.email || existing?.email || "",
     telefono: userData.telefono || existing?.telefono,
     whatsapp: userData.whatsapp || existing?.whatsapp,
+    provincia: userData.provincia || existing?.provincia,
+    localidad: userData.localidad || existing?.localidad,
+    codigoPostal: userData.codigoPostal || existing?.codigoPostal,
+    horariosPreferidos: userData.horariosPreferidos || existing?.horariosPreferidos,
+    observaciones: userData.observaciones || existing?.observaciones,
     authProvider: userData.authProvider || existing?.authProvider || "local",
     passwordHash: userData.passwordHash || existing?.passwordHash,
     createdAt: existing?.createdAt || now,
